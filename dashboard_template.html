@@ -1,0 +1,305 @@
+<title>Finanças — Visão Executiva</title>
+<style>
+@font-face { font-family: 'Source Serif Dash'; font-weight: 600; font-style: normal; font-display: swap;
+  src: url(data:font/woff2;base64,__FONT_SERIF_600__) format('woff2'); }
+@font-face { font-family: 'Plex Sans Dash'; font-weight: 400; font-style: normal; font-display: swap;
+  src: url(data:font/woff2;base64,__FONT_SANS_400__) format('woff2'); }
+@font-face { font-family: 'Plex Sans Dash'; font-weight: 500; font-style: normal; font-display: swap;
+  src: url(data:font/woff2;base64,__FONT_SANS_500__) format('woff2'); }
+@font-face { font-family: 'Plex Sans Dash'; font-weight: 600; font-style: normal; font-display: swap;
+  src: url(data:font/woff2;base64,__FONT_SANS_600__) format('woff2'); }
+@font-face { font-family: 'Plex Mono Dash'; font-weight: 400; font-style: normal; font-display: swap;
+  src: url(data:font/woff2;base64,__FONT_MONO_400__) format('woff2'); }
+@font-face { font-family: 'Plex Mono Dash'; font-weight: 500; font-style: normal; font-display: swap;
+  src: url(data:font/woff2;base64,__FONT_MONO_500__) format('woff2'); }
+
+:root {
+  color-scheme: light;
+  --page: #F7F1E6;
+  --surface: #FFFDF8;
+  --surface-raised: #FFFFFF;
+  --ink: #2B2620;
+  --ink-secondary: #6E6355;
+  --ink-muted: #9C9384;
+  --gridline: #ECE3D0;
+  --border: rgba(43,38,32,0.09);
+  --accent: #0E8C7C;
+  --accent-soft: #D9F0EA;
+  --good: #1E9E56;
+  --good-soft: #DFF3E5;
+  --warning: #D6920E;
+  --warning-soft: #FBEBCE;
+  --critical: #DC4C3E;
+  --critical-soft: #FBE2DE;
+  --neutral-track: #EAE2CF;
+  --cat-1: #2E7FE0; --cat-2: #F0722F; --cat-3: #12B587; --cat-4: #D9A100; --cat-5: #DE5C93;
+  --shadow: 0 1px 2px rgba(43,38,32,0.05), 0 1px 10px rgba(43,38,32,0.03);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #221C15;
+    --surface: #2B241C;
+    --surface-raised: #332B21;
+    --ink: #F6EFE1;
+    --ink-secondary: #D3C5AF;
+    --ink-muted: #A0937C;
+    --gridline: #3C3225;
+    --border: rgba(246,239,225,0.10);
+    --accent: #3FDBBE;
+    --accent-soft: #1E3E37;
+    --good: #4ADE80;
+    --good-soft: #1D3A26;
+    --warning: #FBBF4A;
+    --warning-soft: #3E2F14;
+    --critical: #FF7A6B;
+    --critical-soft: #402420;
+    --neutral-track: #3A3021;
+    --cat-1: #5B9EF5; --cat-2: #FF9256; --cat-3: #35D9A6; --cat-4: #F0C13B; --cat-5: #F080B3;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #221C15; --surface: #2B241C; --surface-raised: #332B21;
+  --ink: #F6EFE1; --ink-secondary: #D3C5AF; --ink-muted: #A0937C;
+  --gridline: #3C3225; --border: rgba(246,239,225,0.10);
+  --accent: #3FDBBE; --accent-soft: #1E3E37;
+  --good: #4ADE80; --good-soft: #1D3A26;
+  --warning: #FBBF4A; --warning-soft: #3E2F14;
+  --critical: #FF7A6B; --critical-soft: #402420;
+  --neutral-track: #3A3021;
+  --cat-1: #5B9EF5; --cat-2: #FF9256; --cat-3: #35D9A6; --cat-4: #F0C13B; --cat-5: #F080B3;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --page: #F7F1E6; --surface: #FFFDF8; --surface-raised: #FFFFFF;
+  --ink: #2B2620; --ink-secondary: #6E6355; --ink-muted: #9C9384;
+  --gridline: #ECE3D0; --border: rgba(43,38,32,0.09);
+  --accent: #0E8C7C; --accent-soft: #D9F0EA;
+  --good: #1E9E56; --good-soft: #DFF3E5;
+  --warning: #D6920E; --warning-soft: #FBEBCE;
+  --critical: #DC4C3E; --critical-soft: #FBE2DE;
+  --neutral-track: #EAE2CF;
+  --cat-1: #2E7FE0; --cat-2: #F0722F; --cat-3: #12B587; --cat-4: #D9A100; --cat-5: #DE5C93;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: 'Plex Sans Dash', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 40px 28px 64px; }
+
+.masthead { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 28px; border-bottom: 1px solid var(--gridline); padding-bottom: 20px; flex-wrap: wrap; }
+.masthead h1 { font-family: 'Source Serif Dash', Georgia, serif; font-weight: 600; font-size: 30px; margin: 0 0 4px; text-wrap: balance; letter-spacing: -0.01em; }
+.masthead .sub { color: var(--ink-secondary); font-size: 13.5px; }
+.masthead .meta { text-align: right; color: var(--ink-muted); font-size: 12px; font-family: 'Plex Mono Dash', monospace; }
+.masthead .meta div + div { margin-top: 2px; }
+
+.eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; font-weight: 600; color: var(--ink-muted); margin: 24px 0 10px; }
+.eyebrow:first-of-type { margin-top: 0; }
+
+/* KPI row */
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 8px; }
+.kpi-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow); }
+.kpi-tile .label { font-size: 11.5px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+.kpi-tile .value { font-family: 'Plex Mono Dash', monospace; font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--accent); }
+.kpi-tile .delta { font-size: 12px; font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 4px; width: fit-content; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
+.kpi-tile .delta.good { color: var(--good); background: var(--good-soft); }
+.kpi-tile .delta.critical { color: var(--critical); background: var(--critical-soft); }
+.kpi-tile .delta.neutral { color: var(--ink-secondary); background: var(--neutral-track); }
+.kpi-tile .foot { font-size: 11px; color: var(--ink-muted); margin-top: auto; }
+.kpi-tile .meter-track { height: 6px; border-radius: 3px; background: var(--neutral-track); overflow: hidden; margin-top: 2px; }
+.kpi-tile .meter-fill { height: 100%; background: var(--good); }
+
+/* section panels */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px 18px; box-shadow: var(--shadow); }
+.panel h2 { font-family: 'Source Serif Dash', Georgia, serif; font-weight: 600; font-size: 17px; margin: 0 0 2px; }
+.panel .panel-sub { font-size: 12.5px; color: var(--ink-secondary); margin-bottom: 14px; }
+
+.grid-2 { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
+.grid-3 { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
+
+/* fluxo chart */
+.chart-wrap { position: relative; }
+.chart-legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink-secondary); margin-bottom: 10px; flex-wrap: wrap; }
+.chart-legend .item { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.chart-legend .line-swatch { width: 14px; height: 2px; border-radius: 1px; display: inline-block; }
+svg text { font-family: 'Plex Mono Dash', monospace; fill: var(--ink-muted); }
+.axis-label { font-size: 10.5px; }
+.bar-good { fill: var(--good); }
+.bar-critical { fill: var(--critical); }
+.saldo-line { fill: none; stroke: var(--accent); stroke-width: 2.25; }
+.saldo-dot { fill: var(--accent); }
+.zero-line { stroke: var(--ink-muted); stroke-width: 1; stroke-dasharray: 2 3; }
+.tooltip { position: absolute; pointer-events: none; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 11.5px; box-shadow: 0 4px 14px rgba(43,38,32,0.16); opacity: 0; transition: opacity 0.1s; z-index: 5; min-width: 140px; }
+.tooltip .t-month { font-family: 'Plex Mono Dash', monospace; color: var(--ink-muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.tooltip .t-row { display: flex; justify-content: space-between; gap: 10px; font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; }
+.tooltip .t-row + .t-row { margin-top: 2px; }
+
+/* composição de despesas / gastos por tipo */
+.stack-bar { display: flex; height: 34px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+.stack-seg { position: relative; }
+.stack-key { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 8px 14px; margin-top: 14px; }
+.stack-key .row { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
+.stack-key .swatch { width: 9px; height: 9px; border-radius: 3px; flex: none; margin-top: 2px; }
+.stack-key .name { color: var(--ink-secondary); flex: 1; }
+.stack-key .val { font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; font-size: 12px; }
+
+.tipo-list { display: flex; flex-direction: column; gap: 8px; }
+.tipo-row { display: grid; grid-template-columns: 110px 1fr 90px; align-items: center; gap: 10px; font-size: 12.5px; }
+.tipo-row .name { color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tipo-row .bar-track { height: 10px; border-radius: 5px; background: var(--neutral-track); overflow: hidden; }
+.tipo-row .bar-fill { height: 100%; border-radius: 5px; }
+.tipo-row .val { font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* obra */
+.obra-meter { display: flex; height: 22px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); margin: 10px 0 8px; }
+.obra-legend { display: flex; gap: 18px; font-size: 12px; color: var(--ink-secondary); margin-bottom: 16px; }
+.obra-legend .item { display: inline-flex; align-items: center; gap: 6px; }
+.obra-legend .swatch { width: 10px; height: 10px; border-radius: 3px; }
+
+table.obra-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.obra-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; padding: 0 8px 8px 0; border-bottom: 1px solid var(--gridline); }
+table.obra-table th.num, table.obra-table td.num { text-align: right; font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; }
+table.obra-table td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--gridline); vertical-align: middle; }
+table.obra-table tr:last-child td { border-bottom: none; }
+.mini-bar { display: flex; height: 8px; width: 100px; border-radius: 4px; overflow: hidden; background: var(--neutral-track); }
+
+/* DRE resumida */
+.dre-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 4px; }
+.dre-kpi { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 6px; background: var(--page); }
+.dre-kpi .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; }
+.dre-kpi .value { font-family: 'Plex Mono Dash', monospace; font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.dre-kpi .pct { font-size: 11px; color: var(--ink-secondary); font-family: 'Plex Mono Dash', monospace; }
+details.dre-detail { margin-top: 14px; }
+details.dre-detail summary { cursor: pointer; font-size: 12.5px; color: var(--accent); font-weight: 500; list-style: none; display: inline-flex; align-items: center; gap: 5px; }
+details.dre-detail summary::-webkit-details-marker { display: none; }
+details.dre-detail summary::before { content: '▸'; font-size: 10px; transition: transform 0.15s; }
+details.dre-detail[open] summary::before { transform: rotate(90deg); }
+details.dre-detail table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
+details.dre-detail th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; padding: 0 8px 6px 0; border-bottom: 1px solid var(--gridline); }
+details.dre-detail th.num, details.dre-detail td.num { text-align: right; font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; }
+details.dre-detail td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--gridline); }
+.grupo-chip { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 1px 6px; border-radius: 20px; font-weight: 600; }
+.grupo-chip.FIXO { background: var(--cat-1); color: #fff; opacity: 0.85; }
+.grupo-chip.VARIAVEL { background: var(--cat-2); color: #fff; opacity: 0.85; }
+.grupo-chip.OBRA { background: var(--cat-5); color: #fff; opacity: 0.85; }
+.grupo-chip.RECEITA_BRUTA, .grupo-chip.OUTRAS_RECEITAS { background: var(--good); color: #fff; opacity: 0.85; }
+.grupo-chip.DEDUCOES { background: var(--neutral-track); color: var(--ink-secondary); }
+
+/* alertas */
+.alert-list { display: flex; flex-direction: column; gap: 10px; }
+.alert-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 6px; background: var(--warning-soft); font-size: 13px; line-height: 1.45; }
+.alert-item .icon { flex: none; font-size: 15px; line-height: 1.4; }
+.alert-empty { color: var(--ink-muted); font-size: 13px; padding: 6px 0; }
+
+.footnotes { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--gridline); font-size: 11.5px; color: var(--ink-muted); display: flex; flex-direction: column; gap: 4px; }
+.footnotes b { color: var(--ink-secondary); font-weight: 600; }
+
+@media (max-width: 900px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .dre-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+.wide-scroll { overflow-x: auto; }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <h1>Visão Executiva — Finanças Pessoais</h1>
+      <div class="sub">Consolidado a partir de DRE_Mensal · Obra_Consolidado · Fluxo_Caixa · Gastos_Por_Tipo — planilha FL_2024</div>
+    </div>
+    <div class="meta">
+      <div id="meta-ref">—</div>
+      <div id="meta-horizon">—</div>
+    </div>
+  </header>
+
+  <div class="eyebrow">Indicadores do mês</div>
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <div class="eyebrow">Alertas &amp; sinais de eficiência</div>
+  <section class="panel" style="margin-bottom:16px;">
+    <div class="alert-list" id="alert-list"></div>
+  </section>
+
+  <div class="grid-2">
+    <section class="panel">
+      <h2>Fluxo de Caixa Projetado</h2>
+      <div class="panel-sub">Resultado mensal (barras) e saldo acumulado (linha) — 14 meses</div>
+      <div class="chart-legend">
+        <span class="item"><span class="swatch" style="background:var(--good)"></span>Mês superavitário</span>
+        <span class="item"><span class="swatch" style="background:var(--critical)"></span>Mês deficitário</span>
+        <span class="item"><span class="line-swatch" style="background:var(--accent)"></span>Saldo acumulado</span>
+      </div>
+      <div class="chart-wrap wide-scroll">
+        <svg id="fluxo-chart" width="100%" viewBox="0 0 720 300" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="tooltip" id="fluxo-tooltip"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Obra da Reforma</h2>
+      <div class="panel-sub" id="obra-sub">—</div>
+      <div class="obra-meter" id="obra-meter"></div>
+      <div class="obra-legend">
+        <span class="item"><span class="swatch" style="background:var(--good)"></span>Pago</span>
+        <span class="item"><span class="swatch" style="background:var(--warning)"></span>Pendente</span>
+        <span class="item"><span class="swatch" style="background:var(--neutral-track); border:1px solid var(--border)"></span>Futuro</span>
+      </div>
+      <div class="wide-scroll">
+        <table class="obra-table">
+          <thead><tr><th>Classificação</th><th class="num">Previsto</th><th>Status</th><th class="num">% Pago</th></tr></thead>
+          <tbody id="obra-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="grid-2">
+    <section class="panel">
+      <h2>DRE Resumida</h2>
+      <div class="panel-sub" id="dre-sub">—</div>
+      <div class="dre-kpis" id="dre-kpis"></div>
+      <details class="dre-detail">
+        <summary>Ver detalhamento linha a linha</summary>
+        <div class="wide-scroll">
+          <table>
+            <thead><tr><th>Linha</th><th>Grupo</th><th class="num">Valor</th><th class="num">% peso</th></tr></thead>
+            <tbody id="dre-detail-body"></tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel">
+      <h2>Gastos por Tipo</h2>
+      <div class="panel-sub" id="tipo-sub">—</div>
+      <div class="tipo-list" id="tipo-list"></div>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-bottom:16px;">
+    <h2>Composição das Despesas do Mês</h2>
+    <div class="panel-sub" id="composicao-sub">—</div>
+    <div class="stack-bar" id="composicao-bar"></div>
+    <div class="stack-key" id="composicao-key"></div>
+  </section>
+
+  <div class="footnotes" id="footnotes"></div>
+</div>
+
+<script id="dash-data" type="application/json">__DASHBOARD_DATA_JSON__</script>
+<script>
+__DASHBOARD_JS__
+</script>
