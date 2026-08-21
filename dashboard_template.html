@@ -15,74 +15,74 @@
 
 :root {
   color-scheme: light;
-  --page: #F7F1E6;
-  --surface: #FFFDF8;
+  --page: #F9F5EC;
+  --surface: #FFFFFF;
   --surface-raised: #FFFFFF;
-  --ink: #2B2620;
-  --ink-secondary: #6E6355;
-  --ink-muted: #9C9384;
-  --gridline: #ECE3D0;
-  --border: rgba(43,38,32,0.09);
-  --accent: #0E8C7C;
-  --accent-soft: #D9F0EA;
-  --good: #1E9E56;
-  --good-soft: #DFF3E5;
-  --warning: #D6920E;
-  --warning-soft: #FBEBCE;
-  --critical: #DC4C3E;
-  --critical-soft: #FBE2DE;
-  --neutral-track: #EAE2CF;
-  --cat-1: #2E7FE0; --cat-2: #F0722F; --cat-3: #12B587; --cat-4: #D9A100; --cat-5: #DE5C93;
-  --shadow: 0 1px 2px rgba(43,38,32,0.05), 0 1px 10px rgba(43,38,32,0.03);
+  --ink: #34302A;
+  --ink-secondary: #79705F;
+  --ink-muted: #ACA290;
+  --gridline: #F0E9DA;
+  --border: rgba(52,48,42,0.07);
+  --accent: #4B9A8B;
+  --accent-soft: #E4F1EC;
+  --good: #4C9A68;
+  --good-soft: #E7F3EA;
+  --warning: #C68C3E;
+  --warning-soft: #F8EEDA;
+  --critical: #BC5B4B;
+  --critical-soft: #F7E6E1;
+  --neutral-track: #F0E9DA;
+  --cat-1: #5487C4; --cat-2: #D3894C; --cat-3: #3FA98A; --cat-4: #C4A048; --cat-5: #C57A96;
+  --shadow: 0 1px 2px rgba(52,48,42,0.03), 0 6px 20px rgba(52,48,42,0.03);
+  --radius: 14px;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --page: #221C15;
-    --surface: #2B241C;
-    --surface-raised: #332B21;
-    --ink: #F6EFE1;
-    --ink-secondary: #D3C5AF;
-    --ink-muted: #A0937C;
-    --gridline: #3C3225;
-    --border: rgba(246,239,225,0.10);
-    --accent: #3FDBBE;
-    --accent-soft: #1E3E37;
-    --good: #4ADE80;
-    --good-soft: #1D3A26;
-    --warning: #FBBF4A;
-    --warning-soft: #3E2F14;
-    --critical: #FF7A6B;
-    --critical-soft: #402420;
-    --neutral-track: #3A3021;
-    --cat-1: #5B9EF5; --cat-2: #FF9256; --cat-3: #35D9A6; --cat-4: #F0C13B; --cat-5: #F080B3;
+    --page: #211D17;
+    --surface: #2A2419;
+    --surface-raised: #322C1F;
+    --ink: #F1EADA;
+    --ink-secondary: #C4B89F;
+    --ink-muted: #8E836D;
+    --gridline: #3A3123;
+    --border: rgba(241,234,218,0.08);
+    --accent: #6EC0AF;
+    --accent-soft: #223C36;
+    --good: #7CC091;
+    --good-soft: #203524;
+    --warning: #E0B36A;
+    --warning-soft: #3A2D16;
+    --critical: #E08D7C;
+    --critical-soft: #3C241F;
+    --neutral-track: #362E20;
+    --cat-1: #7EA9E0; --cat-2: #E0A374; --cat-3: #5FCBAA; --cat-4: #E0C374; --cat-5: #E09FBB;
     --shadow: 0 1px 2px rgba(0,0,0,0.3);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #221C15; --surface: #2B241C; --surface-raised: #332B21;
-  --ink: #F6EFE1; --ink-secondary: #D3C5AF; --ink-muted: #A0937C;
-  --gridline: #3C3225; --border: rgba(246,239,225,0.10);
-  --accent: #3FDBBE; --accent-soft: #1E3E37;
-  --good: #4ADE80; --good-soft: #1D3A26;
-  --warning: #FBBF4A; --warning-soft: #3E2F14;
-  --critical: #FF7A6B; --critical-soft: #402420;
-  --neutral-track: #3A3021;
-  --cat-1: #5B9EF5; --cat-2: #FF9256; --cat-3: #35D9A6; --cat-4: #F0C13B; --cat-5: #F080B3;
-  --shadow: 0 1px 2px rgba(0,0,0,0.3);
+  --page: #211D17; --surface: #2A2419; --surface-raised: #322C1F;
+  --ink: #F1EADA; --ink-secondary: #C4B89F; --ink-muted: #8E836D;
+  --gridline: #3A3123; --border: rgba(241,234,218,0.08);
+  --accent: #6EC0AF; --accent-soft: #223C36;
+  --good: #7CC091; --good-soft: #203524;
+  --warning: #E0B36A; --warning-soft: #3A2D16;
+  --critical: #E08D7C; --critical-soft: #3C241F;
+  --neutral-track: #362E20;
+  --cat-1: #7EA9E0; --cat-2: #E0A374; --cat-3: #5FCBAA; --cat-4: #E0C374; --cat-5: #E09FBB;
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --page: #F7F1E6; --surface: #FFFDF8; --surface-raised: #FFFFFF;
-  --ink: #2B2620; --ink-secondary: #6E6355; --ink-muted: #9C9384;
-  --gridline: #ECE3D0; --border: rgba(43,38,32,0.09);
-  --accent: #0E8C7C; --accent-soft: #D9F0EA;
-  --good: #1E9E56; --good-soft: #DFF3E5;
-  --warning: #D6920E; --warning-soft: #FBEBCE;
-  --critical: #DC4C3E; --critical-soft: #FBE2DE;
-  --neutral-track: #EAE2CF;
-  --cat-1: #2E7FE0; --cat-2: #F0722F; --cat-3: #12B587; --cat-4: #D9A100; --cat-5: #DE5C93;
+  --page: #F9F5EC; --surface: #FFFFFF; --surface-raised: #FFFFFF;
+  --ink: #34302A; --ink-secondary: #79705F; --ink-muted: #ACA290;
+  --gridline: #F0E9DA; --border: rgba(52,48,42,0.07);
+  --accent: #4B9A8B; --accent-soft: #E4F1EC;
+  --good: #4C9A68; --good-soft: #E7F3EA;
+  --warning: #C68C3E; --warning-soft: #F8EEDA;
+  --critical: #BC5B4B; --critical-soft: #F7E6E1;
+  --neutral-track: #F0E9DA;
+  --cat-1: #5487C4; --cat-2: #D3894C; --cat-3: #3FA98A; --cat-4: #C4A048; --cat-5: #C57A96;
 }
 
 * { box-sizing: border-box; }
@@ -96,21 +96,23 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 28px 64px; }
+.neg { color: var(--critical); }
+.pos { color: var(--good); }
 
 .masthead { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 28px; border-bottom: 1px solid var(--gridline); padding-bottom: 20px; flex-wrap: wrap; }
-.masthead h1 { font-family: 'Source Serif Dash', Georgia, serif; font-weight: 600; font-size: 30px; margin: 0 0 4px; text-wrap: balance; letter-spacing: -0.01em; }
+.masthead h1 { font-family: 'Source Serif Dash', Georgia, serif; font-weight: 600; font-size: 29px; margin: 0 0 4px; text-wrap: balance; letter-spacing: -0.01em; }
 .masthead .sub { color: var(--ink-secondary); font-size: 13.5px; }
 .masthead .meta { text-align: right; color: var(--ink-muted); font-size: 12px; font-family: 'Plex Mono Dash', monospace; }
 .masthead .meta div + div { margin-top: 2px; }
 
-.eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; font-weight: 600; color: var(--ink-muted); margin: 24px 0 10px; }
+.eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; font-weight: 600; color: var(--ink-muted); margin: 26px 0 10px; }
 .eyebrow:first-of-type { margin-top: 0; }
 
 /* KPI row */
 .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 8px; }
-.kpi-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow); }
+.kpi-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow); }
 .kpi-tile .label { font-size: 11.5px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-.kpi-tile .value { font-family: 'Plex Mono Dash', monospace; font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--accent); }
+.kpi-tile .value { font-family: 'Plex Mono Dash', monospace; font-size: 21px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--accent); }
 .kpi-tile .delta { font-size: 12px; font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 4px; width: fit-content; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
 .kpi-tile .delta.good { color: var(--good); background: var(--good-soft); }
 .kpi-tile .delta.critical { color: var(--critical); background: var(--critical-soft); }
@@ -120,11 +122,12 @@ body {
 .kpi-tile .meter-fill { height: 100%; background: var(--good); }
 
 /* section panels */
-.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px 18px; box-shadow: var(--shadow); }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px 18px; box-shadow: var(--shadow); }
 .panel h2 { font-family: 'Source Serif Dash', Georgia, serif; font-weight: 600; font-size: 17px; margin: 0 0 2px; }
 .panel .panel-sub { font-size: 12.5px; color: var(--ink-secondary); margin-bottom: 14px; }
+.panel + .panel { margin-top: 16px; }
 
-.grid-2 { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
 .grid-3 { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
 
 /* fluxo chart */
@@ -137,32 +140,26 @@ svg text { font-family: 'Plex Mono Dash', monospace; fill: var(--ink-muted); }
 .axis-label { font-size: 10.5px; }
 .bar-good { fill: var(--good); }
 .bar-critical { fill: var(--critical); }
+.bar-neutral { fill: var(--cat-2); }
 .saldo-line { fill: none; stroke: var(--accent); stroke-width: 2.25; }
 .saldo-dot { fill: var(--accent); }
 .zero-line { stroke: var(--ink-muted); stroke-width: 1; stroke-dasharray: 2 3; }
-.tooltip { position: absolute; pointer-events: none; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 11.5px; box-shadow: 0 4px 14px rgba(43,38,32,0.16); opacity: 0; transition: opacity 0.1s; z-index: 5; min-width: 140px; }
+.ref-line { stroke: var(--ink-muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.7; }
+.tooltip { position: absolute; pointer-events: none; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 11.5px; box-shadow: 0 4px 14px rgba(52,48,42,0.14); opacity: 0; transition: opacity 0.1s; z-index: 5; min-width: 140px; }
 .tooltip .t-month { font-family: 'Plex Mono Dash', monospace; color: var(--ink-muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
 .tooltip .t-row { display: flex; justify-content: space-between; gap: 10px; font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; }
 .tooltip .t-row + .t-row { margin-top: 2px; }
 
-/* composição de despesas / gastos por tipo */
-.stack-bar { display: flex; height: 34px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
-.stack-seg { position: relative; }
-.stack-key { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 8px 14px; margin-top: 14px; }
-.stack-key .row { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
-.stack-key .swatch { width: 9px; height: 9px; border-radius: 3px; flex: none; margin-top: 2px; }
-.stack-key .name { color: var(--ink-secondary); flex: 1; }
-.stack-key .val { font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; font-size: 12px; }
-
-.tipo-list { display: flex; flex-direction: column; gap: 8px; }
-.tipo-row { display: grid; grid-template-columns: 110px 1fr 90px; align-items: center; gap: 10px; font-size: 12.5px; }
-.tipo-row .name { color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tipo-row .bar-track { height: 10px; border-radius: 5px; background: var(--neutral-track); overflow: hidden; }
-.tipo-row .bar-fill { height: 100%; border-radius: 5px; }
-.tipo-row .val { font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; text-align: right; }
+/* horizontal bar lists — gastos por tipo, composição, cartão obra */
+.bar-list { display: flex; flex-direction: column; gap: 8px; }
+.bar-list-row { display: grid; grid-template-columns: 128px 1fr 92px; align-items: center; gap: 10px; font-size: 12.5px; }
+.bar-list-row .name { color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-list-row .bar-track { height: 10px; border-radius: 5px; background: var(--neutral-track); overflow: hidden; }
+.bar-list-row .bar-fill { height: 100%; border-radius: 5px; }
+.bar-list-row .val { font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; text-align: right; }
 
 /* obra */
-.obra-meter { display: flex; height: 22px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); margin: 10px 0 8px; }
+.obra-meter { display: flex; height: 22px; border-radius: 7px; overflow: hidden; border: 1px solid var(--border); margin: 10px 0 8px; }
 .obra-legend { display: flex; gap: 18px; font-size: 12px; color: var(--ink-secondary); margin-bottom: 16px; }
 .obra-legend .item { display: inline-flex; align-items: center; gap: 6px; }
 .obra-legend .swatch { width: 10px; height: 10px; border-radius: 3px; }
@@ -176,7 +173,7 @@ table.obra-table tr:last-child td { border-bottom: none; }
 
 /* DRE resumida */
 .dre-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 4px; }
-.dre-kpi { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 6px; background: var(--page); }
+.dre-kpi { display: flex; flex-direction: column; gap: 3px; padding: 11px 12px; border-radius: 10px; background: var(--page); }
 .dre-kpi .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; }
 .dre-kpi .value { font-family: 'Plex Mono Dash', monospace; font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .dre-kpi .pct { font-size: 11px; color: var(--ink-secondary); font-family: 'Plex Mono Dash', monospace; }
@@ -193,12 +190,19 @@ details.dre-detail td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--g
 .grupo-chip.FIXO { background: var(--cat-1); color: #fff; opacity: 0.85; }
 .grupo-chip.VARIAVEL { background: var(--cat-2); color: #fff; opacity: 0.85; }
 .grupo-chip.OBRA { background: var(--cat-5); color: #fff; opacity: 0.85; }
+.grupo-chip.MORADIA_GABI { background: var(--cat-3); color: #fff; opacity: 0.85; }
 .grupo-chip.RECEITA_BRUTA, .grupo-chip.OUTRAS_RECEITAS { background: var(--good); color: #fff; opacity: 0.85; }
 .grupo-chip.DEDUCOES { background: var(--neutral-track); color: var(--ink-secondary); }
 
+/* compromisso da obra + financiamento */
+.stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat-tile { padding: 11px 12px; border-radius: 10px; background: var(--page); display: flex; flex-direction: column; gap: 3px; }
+.stat-tile .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; }
+.stat-tile .value { font-family: 'Plex Mono Dash', monospace; font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
+
 /* alertas */
 .alert-list { display: flex; flex-direction: column; gap: 10px; }
-.alert-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 6px; background: var(--warning-soft); font-size: 13px; line-height: 1.45; }
+.alert-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: var(--warning-soft); font-size: 13px; line-height: 1.45; }
 .alert-item .icon { flex: none; font-size: 15px; line-height: 1.4; }
 .alert-empty { color: var(--ink-muted); font-size: 13px; padding: 6px 0; }
 
@@ -209,6 +213,7 @@ details.dre-detail td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--g
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .dre-kpis { grid-template-columns: repeat(2, 1fr); }
+  .stat-tiles { grid-template-columns: 1fr; }
 }
 .wide-scroll { overflow-x: auto; }
 </style>
@@ -233,68 +238,86 @@ details.dre-detail td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--g
     <div class="alert-list" id="alert-list"></div>
   </section>
 
+  <section class="panel">
+    <h2>Fluxo de Caixa Projetado</h2>
+    <div class="panel-sub">Resultado mensal (barras) e saldo acumulado (linha) — 14 meses</div>
+    <div class="chart-legend">
+      <span class="item"><span class="swatch" style="background:var(--good)"></span>Mês superavitário</span>
+      <span class="item"><span class="swatch" style="background:var(--critical)"></span>Mês deficitário</span>
+      <span class="item"><span class="line-swatch" style="background:var(--accent)"></span>Saldo acumulado</span>
+    </div>
+    <div class="chart-wrap wide-scroll">
+      <svg id="fluxo-chart" width="100%" viewBox="0 0 720 300" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="tooltip" id="fluxo-tooltip"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>DRE Resumida</h2>
+    <div class="panel-sub" id="dre-sub">—</div>
+    <div class="dre-kpis" id="dre-kpis"></div>
+    <details class="dre-detail">
+      <summary>Ver detalhamento linha a linha</summary>
+      <div class="wide-scroll">
+        <table>
+          <thead><tr><th>Linha</th><th>Grupo</th><th class="num">Valor</th><th class="num">% peso</th></tr></thead>
+          <tbody id="dre-detail-body"></tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <div class="eyebrow">Compromisso da obra</div>
   <div class="grid-2">
     <section class="panel">
-      <h2>Fluxo de Caixa Projetado</h2>
-      <div class="panel-sub">Resultado mensal (barras) e saldo acumulado (linha) — 14 meses</div>
-      <div class="chart-legend">
-        <span class="item"><span class="swatch" style="background:var(--good)"></span>Mês superavitário</span>
-        <span class="item"><span class="swatch" style="background:var(--critical)"></span>Mês deficitário</span>
-        <span class="item"><span class="line-swatch" style="background:var(--accent)"></span>Saldo acumulado</span>
-      </div>
+      <h2>Cartão Obra — Parcelas Futuras</h2>
+      <div class="panel-sub" id="cartao-obra-sub">—</div>
       <div class="chart-wrap wide-scroll">
-        <svg id="fluxo-chart" width="100%" viewBox="0 0 720 300" preserveAspectRatio="xMidYMid meet"></svg>
-        <div class="tooltip" id="fluxo-tooltip"></div>
+        <svg id="cartao-obra-chart" width="100%" viewBox="0 0 340 220" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="tooltip" id="cartao-obra-tooltip"></div>
       </div>
     </section>
-
     <section class="panel">
-      <h2>Obra da Reforma</h2>
-      <div class="panel-sub" id="obra-sub">—</div>
-      <div class="obra-meter" id="obra-meter"></div>
-      <div class="obra-legend">
-        <span class="item"><span class="swatch" style="background:var(--good)"></span>Pago</span>
-        <span class="item"><span class="swatch" style="background:var(--warning)"></span>Pendente</span>
-        <span class="item"><span class="swatch" style="background:var(--neutral-track); border:1px solid var(--border)"></span>Futuro</span>
-      </div>
-      <div class="wide-scroll">
-        <table class="obra-table">
-          <thead><tr><th>Classificação</th><th class="num">Previsto</th><th>Status</th><th class="num">% Pago</th></tr></thead>
-          <tbody id="obra-table-body"></tbody>
-        </table>
+      <h2>Financiamento da Obra</h2>
+      <div class="panel-sub" id="financiamento-sub">—</div>
+      <div class="chart-wrap wide-scroll">
+        <svg id="financiamento-chart" width="100%" viewBox="0 0 340 220" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="tooltip" id="financiamento-tooltip"></div>
       </div>
     </section>
   </div>
 
-  <div class="grid-2">
-    <section class="panel">
-      <h2>DRE Resumida</h2>
-      <div class="panel-sub" id="dre-sub">—</div>
-      <div class="dre-kpis" id="dre-kpis"></div>
-      <details class="dre-detail">
-        <summary>Ver detalhamento linha a linha</summary>
-        <div class="wide-scroll">
-          <table>
-            <thead><tr><th>Linha</th><th>Grupo</th><th class="num">Valor</th><th class="num">% peso</th></tr></thead>
-            <tbody id="dre-detail-body"></tbody>
-          </table>
-        </div>
-      </details>
-    </section>
+  <section class="panel">
+    <h2>Obra da Reforma</h2>
+    <div class="panel-sub" id="obra-sub">—</div>
+    <div class="stat-tiles" id="pagamentos-tiles"></div>
+    <div class="obra-meter" id="obra-meter"></div>
+    <div class="obra-legend">
+      <span class="item"><span class="swatch" style="background:var(--good)"></span>Pago</span>
+      <span class="item"><span class="swatch" style="background:var(--warning)"></span>Pendente</span>
+      <span class="item"><span class="swatch" style="background:var(--neutral-track); border:1px solid var(--border)"></span>Futuro</span>
+    </div>
+    <div class="wide-scroll">
+      <table class="obra-table">
+        <thead><tr><th>Classificação</th><th class="num">Previsto</th><th>Status</th><th class="num">% Pago</th></tr></thead>
+        <tbody id="obra-table-body"></tbody>
+      </table>
+    </div>
+  </section>
 
+  <div class="grid-2">
     <section class="panel">
       <h2>Gastos por Tipo</h2>
       <div class="panel-sub" id="tipo-sub">—</div>
-      <div class="tipo-list" id="tipo-list"></div>
+      <div class="bar-list" id="tipo-list"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Composição das Despesas do Mês</h2>
+      <div class="panel-sub" id="composicao-sub">—</div>
+      <div class="bar-list" id="composicao-list"></div>
     </section>
   </div>
-
-  <section class="panel" style="margin-bottom:16px;">
-    <h2>Composição das Despesas do Mês</h2>
-    <div class="panel-sub" id="composicao-sub">—</div>
-    <div class="stack-bar" id="composicao-bar"></div>
-    <div class="stack-key" id="composicao-key"></div>
-  </section>
 
   <div class="footnotes" id="footnotes"></div>
 </div>

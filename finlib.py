@@ -40,18 +40,19 @@ GROUPS = [
     ("Desc. Plano Saúde + Dental", "DEDUCOES"),
     ("Desc. Farmácia", "DEDUCOES"),
     ("13º Salário", "DEDUCOES"),
+    ("(-) MORADIA (PAGO POR GABI — INFORMATIVO, NÃO ENTRA NA MARGEM)", None),
+    ("Financiamento VM", "MORADIA_GABI"),
+    ("Condominio VM", "MORADIA_GABI"),
+    ("IPTU", "MORADIA_GABI"),
+    ("Energia Eletrica VM", "MORADIA_GABI"),
+    ("ComGás VM", "MORADIA_GABI"),
+    ("Internet VM", "MORADIA_GABI"),
+    ("Aluguel Saúde Saúde", "MORADIA_GABI"),
+    ("Condominio + Gás + Agua Saúde", "MORADIA_GABI"),
+    ("Enel Saúde", "MORADIA_GABI"),
+    ("Internet - Saúde", "MORADIA_GABI"),
+    ("Cartão Crédito Casa", "MORADIA_GABI"),
     ("(-) CUSTOS FIXOS", None),
-    ("Financiamento VM", "FIXO"),
-    ("Condominio VM", "FIXO"),
-    ("IPTU", "FIXO"),
-    ("Energia Eletrica VM", "FIXO"),
-    ("ComGás VM", "FIXO"),
-    ("Internet VM", "FIXO"),
-    ("Aluguel Saúde Saúde", "FIXO"),
-    ("Condominio + Gás + Agua Saúde", "FIXO"),
-    ("Enel Saúde", "FIXO"),
-    ("Internet - Saúde", "FIXO"),
-    ("Cartão Crédito Casa", "FIXO"),
     ("Seguro Carro Taos", "FIXO"),
     ("Previdencia Privada BB", "FIXO"),
     ("Celular", "FIXO"),
@@ -176,20 +177,22 @@ def compute_totals(months, data, cartao_tipo):
     deducoes = group_sum(data, "DEDUCOES", n)
     receita_liquida = [a + b for a, b in zip(receita_bruta, deducoes)]
     fixo = group_sum(data, "FIXO", n)
+    moradia_gabi = group_sum(data, "MORADIA_GABI", n)
     variavel_sem_cartao = group_sum(data, "VARIAVEL", n)
     variavel = [a + b for a, b in zip(variavel_sem_cartao, cartao_total)]
     obra = group_sum(data, "OBRA", n)
     outras_receitas = group_sum(data, "OUTRAS_RECEITAS", n)
     investimentos = group_sum(data, "INVESTIMENTOS", n)
 
+    # moradia_gabi is informational only (paid by Gabi) — excluded from margem_liquida.
     margem_liquida = [
         rl + orc + f + v + o + inv
         for rl, orc, f, v, o, inv in zip(receita_liquida, outras_receitas, fixo, variavel, obra, investimentos)
     ]
     return {
         "receita_bruta": receita_bruta, "deducoes": deducoes, "receita_liquida": receita_liquida,
-        "fixo": fixo, "variavel_sem_cartao": variavel_sem_cartao, "cartao_total": cartao_total,
-        "variavel": variavel, "obra": obra, "outras_receitas": outras_receitas,
+        "fixo": fixo, "moradia_gabi": moradia_gabi, "variavel_sem_cartao": variavel_sem_cartao,
+        "cartao_total": cartao_total, "variavel": variavel, "obra": obra, "outras_receitas": outras_receitas,
         "investimentos": investimentos, "margem_liquida": margem_liquida,
     }
 
@@ -222,6 +225,26 @@ def br_to_float(s):
     if negative:
         val = -val
     return val
+
+
+def red_negative_rule(sheet_id, n_rows, n_cols, start_row=0, start_col=0):
+    """Conditional format request: any cell whose text starts with '(' (our
+    fmt_brl negative convention) renders in red — used across all derived sheets."""
+    return {
+        "addConditionalFormatRule": {
+            "rule": {
+                "ranges": [{
+                    "sheetId": sheet_id, "startRowIndex": start_row, "endRowIndex": n_rows,
+                    "startColumnIndex": start_col, "endColumnIndex": n_cols,
+                }],
+                "booleanRule": {
+                    "condition": {"type": "TEXT_STARTS_WITH", "values": [{"userEnteredValue": "("}]},
+                    "format": {"textFormat": {"foregroundColor": {"red": 0.78, "green": 0.14, "blue": 0.11}}},
+                },
+            },
+            "index": 0,
+        }
+    }
 
 
 def fmt_brl(v):

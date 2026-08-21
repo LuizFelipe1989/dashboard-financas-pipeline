@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from finlib import get_clients, br_to_float, fmt_brl
+from finlib import get_clients, br_to_float, fmt_brl, red_negative_rule
 
 SRC_TAB = "Fluxo_Apto_Realizado"
 OUT_TAB = "Obra_Consolidado"
@@ -77,6 +77,50 @@ def load_items_and_colors(sh, sheets_api, ws):
         item["realizado_lancado"] = pago + pendente + futuro
 
     return items
+
+
+def payment_summary(items):
+    """Cross-tab pago/pendente/futuro by Modalidade (Pix vs Cartão) — answers:
+    quanto já foi pago (Pix+Cartão), quanto falta em Pix pendente, e quanto ainda
+    vai vencer no cartão (parcelas futuras)."""
+    pago_total = sum(i["pago"] for i in items)
+    pendente_total = sum(i["pendente"] for i in items)
+    pix_pendente = sum(i["pendente"] for i in items if i["modalidade"].strip().lower() == "pix")
+    cartao_pendente = sum(i["pendente"] for i in items if i["modalidade"].strip().lower() == "cartão")
+    cartao_futuro = sum(i["futuro"] for i in items if i["modalidade"].strip().lower() == "cartão")
+    pix_futuro = sum(i["futuro"] for i in items if i["modalidade"].strip().lower() == "pix")
+    return {
+        "pago_total": pago_total,
+        "pendente_total": pendente_total,
+        "pix_pendente": pix_pendente,
+        "cartao_pendente": cartao_pendente,
+        "cartao_futuro": cartao_futuro,
+        "pix_futuro": pix_futuro,
+    }
+
+
+def load_realizado_totais_mensais(ws):
+    """Read the Cartão / Pix / Total monthly breakdown just below the item table
+    (own month labels, e.g. Junho..Junho) — the sheet's own realized+scheduled
+    obra cash-out per month, used to track it against the initial investment."""
+    values = ws.get_all_values()
+    header_row_idx = None
+    for i, row in enumerate(values):
+        if i > 50 and len(row) > 9 and row[9].strip() == "Junho":
+            header_row_idx = i
+            break
+    if header_row_idx is None:
+        return [], {}
+    months = [c.strip() for c in values[header_row_idx][9:22] if c.strip()]
+    n = len(months)
+
+    def find_row(label):
+        for row in values[header_row_idx:header_row_idx + 6]:
+            if len(row) > 8 and row[8].strip() == label:
+                return [br_to_float(c) for c in row[9:9 + n]]
+        return [0.0] * n
+
+    return months, {"cartao": find_row("Cartão"), "pix": find_row("Pix"), "total": find_row("Total")}
 
 
 def main():
@@ -177,6 +221,7 @@ def main():
                 "fields": "userEnteredFormat.backgroundColor",
             }
         })
+    requests.append(red_negative_rule(sheet_id, len(out_values), len(header)))
     if requests:
         sheets_api.spreadsheets().batchUpdate(spreadsheetId=sh.id, body={"requests": requests}).execute()
 

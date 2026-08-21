@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from finlib import get_clients, fmt_brl, CONTAS_TAB, load_card_items
+from finlib import get_clients, fmt_brl, CONTAS_TAB, load_card_items, red_negative_rule
 
 OUT_TAB = "Gastos_Por_Tipo"
 
@@ -55,6 +55,7 @@ def main():
             }
         },
     ]
+    requests.append(red_negative_rule(sheet_id, len(out_values), len(header)))
     sheets_api.spreadsheets().batchUpdate(spreadsheetId=sh.id, body={"requests": requests}).execute()
 
     print(f"Gastos_Por_Tipo escrito: {len(out_values)} linhas")

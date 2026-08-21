@@ -1,6 +1,6 @@
 from finlib import (
     get_clients, fmt_brl, GROUPS, PROJ_TAB, CONTAS_TAB, REF_MONTH_INDEX,
-    load_projecao, load_card_items, cartao_por_tipo, compute_totals,
+    load_projecao, load_card_items, cartao_por_tipo, compute_totals, red_negative_rule,
 )
 
 OUT_TAB = "DRE_Mensal"
@@ -102,6 +102,7 @@ def main():
                     "fields": "userEnteredFormat.textFormat",
                 }
             })
+    requests.append(red_negative_rule(sheet_id, len(out_values), len(header_row)))
     if requests:
         sheets_api.spreadsheets().batchUpdate(spreadsheetId=sh.id, body={"requests": requests}).execute()
 

@@ -1,6 +1,6 @@
 from finlib import (
     get_clients, fmt_brl, PROJ_TAB, CONTAS_TAB, REF_MONTH_INDEX,
-    load_projecao, load_card_items, distribute, cartao_por_tipo, compute_totals,
+    load_projecao, load_card_items, distribute, cartao_por_tipo, compute_totals, red_negative_rule,
 )
 
 OUT_TAB = "Fluxo_Caixa"
@@ -56,6 +56,9 @@ def main():
     add_row("LINE", "Receita Líquida (Salário)", totals["receita_liquida"])
     add_row("LINE", "Outras Receitas / Aportes (Gabriela)", totals["outras_receitas"])
 
+    add_section("MORADIA — PAGO POR GABI (INFORMATIVO, NÃO ENTRA NO SALDO)")
+    add_row("REF", "Financiamento + Condomínio + IPTU + Energia + Gás + Internet (VM e Saúde)", totals["moradia_gabi"])
+
     add_section("(-) CUSTOS FIXOS")
     add_row("SUBTOTAL", "Subtotal Custos Fixos", totals["fixo"])
 
@@ -72,10 +75,15 @@ def main():
     add_section("(-) INVESTIMENTOS")
     add_row("LINE", "Investimentos", totals["investimentos"])
 
-    add_section("REFERÊNCIA — cartão de obra, já contabilizado em Obra_Consolidado, NÃO somado no total abaixo")
+    obra_cartao_total = [0.0] * n
+    for _, vals in obra_dist:
+        obra_cartao_total = [a + b for a, b in zip(obra_cartao_total, vals)]
+
+    add_section("CARTÃO OBRA — PARCELAS FUTURAS (já contabilizado em Obra_Consolidado; NÃO somado no total abaixo, mas mostra o quanto precisa ficar reservado por mês)")
     for it, vals in obra_dist:
         label = f"{it['desc']} [Obra Apto — {it['banco']}]"
         add_row("REF", label, vals)
+    add_row("SUBTOTAL", "Total Cartão Obra a pagar no mês", obra_cartao_total)
 
     add_section("(=) RESULTADO")
     add_row("TOTAL", "Total Despesas (Fixos+Variáveis+Obra)", total_despesas)
@@ -117,6 +125,7 @@ def main():
                     "fields": "userEnteredFormat.textFormat",
                 }
             })
+    requests.append(red_negative_rule(sheet_id, len(out_values), len(header)))
     if requests:
         sheets_api.spreadsheets().batchUpdate(spreadsheetId=sh.id, body={"requests": requests}).execute()
 
@@ -125,6 +134,9 @@ def main():
     print(f"Total Despesas (último mês, {months[-1]}): {fmt_brl(total_despesas[-1])}")
     print(f"Saldo do Mês (último mês): {fmt_brl(saldo_mes[-1])}")
     print(f"Saldo Acumulado (último mês, saldo inicial=0): {fmt_brl(saldo_acumulado[-1])}")
+    print(f"Moradia paga por Gabi (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['moradia_gabi'][REF_MONTH_INDEX])}")
+    print(f"Cartão Obra a pagar (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(obra_cartao_total[REF_MONTH_INDEX])}")
+    print(f"Cartão Obra pico mensal no horizonte: {fmt_brl(min(obra_cartao_total))}")
 
 
 if __name__ == "__main__":

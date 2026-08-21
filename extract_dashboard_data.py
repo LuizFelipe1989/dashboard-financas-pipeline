@@ -3,12 +3,17 @@ from collections import OrderedDict
 
 from finlib import (
     get_clients, GROUPS, PROJ_TAB, CONTAS_TAB, REF_MONTH_INDEX,
-    load_projecao, load_card_items, cartao_por_tipo, compute_totals,
+    load_projecao, load_card_items, distribute, cartao_por_tipo, compute_totals,
 )
-from build_obra import load_items_and_colors, SRC_TAB as OBRA_TAB
+from build_obra import load_items_and_colors, payment_summary, SRC_TAB as OBRA_TAB
 from build_gastos_tipo import group_by_tipo
 
 OUT_PATH = "dashboard_data.json"
+
+# Extrato BB (conta 3494-0 / 48516-0), posição em 20/08/2026 — atualize manualmente
+# a cada novo extrato até termos ingestão automática.
+SALDO_DISPONIVEL_IMEDIATO = 25371.41
+INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76  # RF Ref DI Plus Ágil, dado em garantia do limite do cartão
 
 
 def dre_detalhe_for_month(data, ctipo, month_idx, base_receita):
@@ -57,6 +62,12 @@ def main():
     ctipo = cartao_por_tipo(card_items, n)
     totals = compute_totals(months, proj_data, ctipo)
 
+    obra_card_items = [it for it in card_items if it["tipo"] == "Obra Apto"]
+    obra_dist = distribute(obra_card_items, n)
+    cartao_obra_mensal = [0.0] * n
+    for _, vals in obra_dist:
+        cartao_obra_mensal = [a + b for a, b in zip(cartao_obra_mensal, vals)]
+
     saldo_mes = [
         rl + orc + f + v + o + inv
         for rl, orc, f, v, o, inv in zip(
@@ -72,7 +83,7 @@ def main():
 
     # ---- DRE resumo (mês de referência) ----
     ref = REF_MONTH_INDEX
-    base_receita = abs(totals["receita_liquida"][ref]) or 1.0
+    base_receita = abs(totals["receita_liquida"][ref] + totals["outras_receitas"][ref]) or 1.0
     dre_resumo = {
         "receita_liquida": totals["receita_liquida"][ref] + totals["outras_receitas"][ref],
         "custos_fixos": totals["fixo"][ref],
@@ -117,6 +128,22 @@ def main():
         acc["futuro"] += it["futuro"]
     class_rollup = [{"classificacao": c, **acc} for c, acc in sorted(by_class.items(), key=lambda kv: -kv[1]["previsto"])]
 
+    pagamentos = payment_summary(items)
+
+    # ---- Financiamento da obra: o investimento (RF Ref DI Plus Ágil) fica bloqueado como
+    # garantia do limite do cartão e vai sendo liberado conforme as parcelas de obra no
+    # cartão são pagas. Saldo real do extrato BB em 20/08/2026 (ver constantes no topo).
+    investimento_liberado_acumulado = []
+    investimento_ainda_bloqueado = []
+    saldo_total_disponivel = []
+    liberado_acumulado = 0.0
+    for i in range(n):
+        if i >= REF_MONTH_INDEX:
+            liberado_acumulado = min(INVESTIMENTO_BLOQUEADO_TOTAL, liberado_acumulado + abs(cartao_obra_mensal[i]))
+        investimento_liberado_acumulado.append(liberado_acumulado)
+        investimento_ainda_bloqueado.append(INVESTIMENTO_BLOQUEADO_TOTAL - liberado_acumulado)
+        saldo_total_disponivel.append(SALDO_DISPONIVEL_IMEDIATO + liberado_acumulado)
+
     personal_n = len([it for it in card_items if it["tipo"] != "Obra Apto"])
     obra_card_n = len([it for it in card_items if it["tipo"] == "Obra Apto"])
 
@@ -126,8 +153,10 @@ def main():
         "receita_liquida": totals["receita_liquida"],
         "outras_receitas": totals["outras_receitas"],
         "custos_fixos": totals["fixo"],
+        "moradia_gabi": totals["moradia_gabi"],
         "custos_variaveis": totals["variavel"],
         "obra_pix": proj_data.get("Pix Pagamentos Obra", [0.0] * n),
+        "cartao_obra_mensal": cartao_obra_mensal,
         "investimentos": totals["investimentos"],
         "total_despesas": [f + v + o for f, v, o in zip(totals["fixo"], totals["variavel"], totals["obra"])],
         "saldo_mes": saldo_mes,
@@ -138,6 +167,14 @@ def main():
         "obra": {
             "previsto": grand_previsto, "pago": grand_pago, "pendente": grand_pendente, "futuro": grand_futuro,
             "por_classificacao": class_rollup,
+        },
+        "pagamentos": pagamentos,
+        "financiamento_obra": {
+            "saldo_disponivel_imediato": SALDO_DISPONIVEL_IMEDIATO,
+            "investimento_bloqueado_total": INVESTIMENTO_BLOQUEADO_TOTAL,
+            "investimento_liberado_acumulado": investimento_liberado_acumulado,
+            "investimento_ainda_bloqueado": investimento_ainda_bloqueado,
+            "saldo_total_disponivel": saldo_total_disponivel,
         },
         "n_itens_cartao_pessoal": personal_n,
         "n_itens_obra_cartao": obra_card_n,
@@ -150,6 +187,10 @@ def main():
     print(f"{OUT_PATH} escrito.")
     print(f"Mês referência: {months[REF_MONTH_INDEX]} | Margem Líquida: {dre_resumo['margem_liquida']:.2f}")
     print(f"Gastos por Tipo: {len(gastos_por_tipo)} tipos | Obra: {len(class_rollup)} classificações")
+    print(f"Moradia paga por Gabi (mês ref): {totals['moradia_gabi'][ref]:.2f}")
+    print(f"Cartão Obra mensal (mês ref): {cartao_obra_mensal[ref]:.2f} | pico: {min(cartao_obra_mensal):.2f}")
+    print(f"Pagamentos -> Pago total: {pagamentos['pago_total']:.2f} | Pix pendente: {pagamentos['pix_pendente']:.2f} | Cartão futuro: {pagamentos['cartao_futuro']:.2f}")
+    print(f"Financiamento obra: bloqueado {INVESTIMENTO_BLOQUEADO_TOTAL:.2f} -> liberado até {months[-1]}: {investimento_liberado_acumulado[-1]:.2f} | saldo total disponível final: {saldo_total_disponivel[-1]:.2f}")
 
 
 if __name__ == "__main__":
