@@ -1,44 +1,34 @@
 from finlib import (
-    get_clients, fmt_brl, PROJ_TAB, CONTAS_TAB, REF_MONTH_INDEX,
-    load_projecao, load_card_items, distribute, cartao_por_tipo, compute_totals, red_negative_rule,
+    get_clients, fmt_brl, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, REF_MONTH_INDEX,
+    load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals, red_negative_rule,
 )
 
 OUT_TAB = "Fluxo_Caixa"
-SALDO_INICIAL = 0.0  # TODO: substituir pelo saldo real em conta no mês de referência
 
 
 def main():
     sh, sheets_api = get_clients()
     contas_ws = sh.worksheet(CONTAS_TAB)
     proj_ws = sh.worksheet(PROJ_TAB)
+    apto_ws = sh.worksheet(FLUXO_APTO_TAB)
 
     months, proj_data = load_projecao(proj_ws)
     n = len(months)
 
     card_items = load_card_items(contas_ws)
-    personal_items = [it for it in card_items if it["tipo"] != "Obra Apto"]
-    obra_items = [it for it in card_items if it["tipo"] == "Obra Apto"]
-    personal_dist = distribute(personal_items, n)
-    obra_dist = distribute(obra_items, n)
     ctipo = cartao_por_tipo(card_items, n)
+    cartao_obra_mensal = load_cartao_obra_mensal(apto_ws, months)
+    totals = compute_totals(months, proj_data, ctipo, cartao_obra_mensal)
 
-    totals = compute_totals(months, proj_data, ctipo)
-    pix_obra = proj_data.get("Pix Pagamentos Obra", [0.0] * n)
-
-    total_despesas = [
-        f + v + o for f, v, o in zip(totals["fixo"], totals["variavel"], totals["obra"])
-    ]
-    saldo_mes = [
-        rl + orc + td + inv
-        for rl, orc, td, inv in zip(totals["receita_liquida"], totals["outras_receitas"], total_despesas, totals["investimentos"])
-    ]
+    # Fluxo de caixa parte diretamente da DRE: Entradas − Saídas = Saldo Líquido.
+    # Investimentos entra depois do saldo líquido operacional (não é despesa recorrente).
+    saldo_mes = [sl + inv for sl, inv in zip(totals["saldo_liquido"], totals["investimentos"])]
     saldo_acumulado = []
-    running = SALDO_INICIAL
+    running = 0.0
     for v in saldo_mes:
         running += v
         saldo_acumulado.append(running)
 
-    # ---- assemble sheet ----
     header = ["Linha"] + months + ["TOTAL"]
     out_values = [header]
     row_kinds = ["HEADER"]
@@ -52,43 +42,35 @@ def main():
         out_values.append([label] + [""] * (n + 1))
         row_kinds.append("SECTION")
 
-    add_section("RECEITA")
+    add_section("(+) ENTRADAS")
     add_row("LINE", "Receita Líquida (Salário)", totals["receita_liquida"])
     add_row("LINE", "Outras Receitas / Aportes (Gabriela)", totals["outras_receitas"])
+    add_row("SUBTOTAL", "Total Entradas", totals["entradas"])
 
-    add_section("MORADIA — PAGO POR GABI (INFORMATIVO, NÃO ENTRA NO SALDO)")
-    add_row("REF", "Financiamento + Condomínio + IPTU + Energia + Gás + Internet (VM e Saúde)", totals["moradia_gabi"])
+    add_section("MORADIA SAÚDE — PAGO POR GABI (INFORMATIVO, NÃO ENTRA NAS SAÍDAS)")
+    add_row("REF", "Aluguel + Condomínio + Enel + Internet + Cartão Casa", totals["moradia_gabi"])
 
-    add_section("(-) CUSTOS FIXOS")
+    add_section("(-) SAÍDAS — CUSTOS FIXOS")
     add_row("SUBTOTAL", "Subtotal Custos Fixos", totals["fixo"])
 
-    add_section("(-) CUSTOS VARIÁVEIS")
+    add_section("(-) SAÍDAS — CUSTOS VARIÁVEIS")
     add_row("LINE", "Variáveis (exceto cartão)", totals["variavel_sem_cartao"])
     for tipo, vals in sorted(ctipo.items(), key=lambda kv: -sum(kv[1])):
         add_row("LINE", f"Cartão Pessoal — {tipo}", vals)
+    add_row("LINE", "Cartão Obra (parcelas — Fluxo_Apto_Realizado, linha 55)", cartao_obra_mensal)
     add_row("SUBTOTAL", "Subtotal Custos Variáveis", totals["variavel"])
 
-    add_section("(-) OBRA (REFORMA)")
-    add_row("LINE", "Pix Pagamentos Obra", pix_obra)
-    add_row("SUBTOTAL", "Subtotal Obra", totals["obra"])
+    add_row("TOTAL", "Total Saídas", totals["saidas"])
+
+    add_section("(=) SALDO LÍQUIDO (ENTRADAS − SAÍDAS)")
+    add_row("TOTAL", "Saldo Líquido", totals["saldo_liquido"])
 
     add_section("(-) INVESTIMENTOS")
     add_row("LINE", "Investimentos", totals["investimentos"])
 
-    obra_cartao_total = [0.0] * n
-    for _, vals in obra_dist:
-        obra_cartao_total = [a + b for a, b in zip(obra_cartao_total, vals)]
-
-    add_section("CARTÃO OBRA — PARCELAS FUTURAS (já contabilizado em Obra_Consolidado; NÃO somado no total abaixo, mas mostra o quanto precisa ficar reservado por mês)")
-    for it, vals in obra_dist:
-        label = f"{it['desc']} [Obra Apto — {it['banco']}]"
-        add_row("REF", label, vals)
-    add_row("SUBTOTAL", "Total Cartão Obra a pagar no mês", obra_cartao_total)
-
-    add_section("(=) RESULTADO")
-    add_row("TOTAL", "Total Despesas (Fixos+Variáveis+Obra)", total_despesas)
-    add_row("TOTAL", "Saldo do Mês", saldo_mes)
-    add_row("TOTAL", f"Saldo Acumulado (saldo inicial={fmt_brl(SALDO_INICIAL)})", saldo_acumulado)
+    add_section("(=) RESULTADO FINAL DO MÊS")
+    add_row("TOTAL", "Saldo do Mês (após investimentos)", saldo_mes)
+    add_row("TOTAL", "Saldo Acumulado", saldo_acumulado)
 
     try:
         out_ws = sh.worksheet(OUT_TAB)
@@ -130,13 +112,10 @@ def main():
         sheets_api.spreadsheets().batchUpdate(spreadsheetId=sh.id, body={"requests": requests}).execute()
 
     print(f"Fluxo_Caixa escrito: {len(out_values)} linhas x {len(header)} colunas")
-    print(f"Itens cartão pessoal: {len(personal_items)} | Itens obra (referência): {len(obra_items)}")
-    print(f"Total Despesas (último mês, {months[-1]}): {fmt_brl(total_despesas[-1])}")
-    print(f"Saldo do Mês (último mês): {fmt_brl(saldo_mes[-1])}")
-    print(f"Saldo Acumulado (último mês, saldo inicial=0): {fmt_brl(saldo_acumulado[-1])}")
-    print(f"Moradia paga por Gabi (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['moradia_gabi'][REF_MONTH_INDEX])}")
-    print(f"Cartão Obra a pagar (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(obra_cartao_total[REF_MONTH_INDEX])}")
-    print(f"Cartão Obra pico mensal no horizonte: {fmt_brl(min(obra_cartao_total))}")
+    print(f"Entradas (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['entradas'][REF_MONTH_INDEX])}")
+    print(f"Saídas (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['saidas'][REF_MONTH_INDEX])}")
+    print(f"Saldo Líquido (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['saldo_liquido'][REF_MONTH_INDEX])}")
+    print(f"Saldo Acumulado (último mês, {months[-1]}): {fmt_brl(saldo_acumulado[-1])}")
 
 
 if __name__ == "__main__":

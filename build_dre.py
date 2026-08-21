@@ -1,12 +1,18 @@
 from finlib import (
-    get_clients, fmt_brl, GROUPS, PROJ_TAB, CONTAS_TAB, REF_MONTH_INDEX,
-    load_projecao, load_card_items, cartao_por_tipo, compute_totals, red_negative_rule,
+    get_clients, fmt_brl, GROUPS, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, REF_MONTH_INDEX,
+    load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals, red_negative_rule,
 )
 
 OUT_TAB = "DRE_Mensal"
 
+GRUPO_LABEL = {
+    "DEDUCOES": "Dedução", "MORADIA_GABI": "Informativo (Gabi)", "FIXO": "Fixo",
+    "VARIAVEL": "Variável", "RECEITA_BRUTA": "Receita", "OUTRAS_RECEITAS": "Receita",
+    "INVESTIMENTOS": "Investimento",
+}
 
-def build_rows(months, data, cartao_tipo, totals):
+
+def build_rows(months, data, cartao_tipo, cartao_obra_mensal, totals):
     n = len(months)
     group_sums = {}
     for _, group in GROUPS:
@@ -23,7 +29,7 @@ def build_rows(months, data, cartao_tipo, totals):
     while i < len(GROUPS):
         label, group = GROUPS[i]
         if group is None:
-            final_rows.append(("HEADER", label, None))
+            final_rows.append(("HEADER", label, None, ""))
             j = i + 1
             grp_key = None
             while j < len(GROUPS) and GROUPS[j][1] is not None:
@@ -31,22 +37,23 @@ def build_rows(months, data, cartao_tipo, totals):
                 grp_key = sub_group
                 vals = data.get(sub_label, [0.0] * n)
                 display_label = sub_label.replace("#2", "")
-                final_rows.append(("LINE", display_label, vals))
+                final_rows.append(("LINE", display_label, vals, GRUPO_LABEL.get(sub_group, "")))
                 j += 1
             if grp_key == "VARIAVEL":
                 for tipo, vals in sorted(cartao_tipo.items(), key=lambda kv: -sum(kv[1])):
-                    final_rows.append(("LINE", f"Cartão Pessoal — {tipo}", vals))
-                final_rows.append(("SUBTOTAL", "Subtotal", totals["variavel"]))
+                    final_rows.append(("LINE", f"Cartão Pessoal — {tipo}", vals, "Variável"))
+                final_rows.append(("LINE", "Cartão Obra (parcelas — Fluxo_Apto_Realizado)", cartao_obra_mensal, "Variável"))
+                final_rows.append(("SUBTOTAL", "Subtotal", totals["variavel"], "Variável"))
             elif grp_key is not None:
-                final_rows.append(("SUBTOTAL", "Subtotal", group_sums[grp_key]))
+                final_rows.append(("SUBTOTAL", "Subtotal", group_sums[grp_key], GRUPO_LABEL.get(grp_key, "")))
             i = j
         else:
             i += 1
 
-    final_rows.append(("HEADER", "(=) RECEITA LÍQUIDA", None))
-    final_rows.append(("SUBTOTAL", "Receita Líquida", totals["receita_liquida"]))
-    final_rows.append(("HEADER", "(=) MARGEM LÍQUIDA", None))
-    final_rows.append(("SUBTOTAL", "Margem Líquida (Resultado do Mês)", totals["margem_liquida"]))
+    final_rows.append(("HEADER", "(=) RECEITA LÍQUIDA", None, ""))
+    final_rows.append(("SUBTOTAL", "Receita Líquida", totals["receita_liquida"], "Receita"))
+    final_rows.append(("HEADER", "(=) MARGEM LÍQUIDA", None, ""))
+    final_rows.append(("SUBTOTAL", "Margem Líquida (Resultado do Mês)", totals["margem_liquida"], "Resultado"))
 
     return final_rows
 
@@ -55,24 +62,26 @@ def main():
     sh, sheets_api = get_clients()
     src_ws = sh.worksheet(PROJ_TAB)
     contas_ws = sh.worksheet(CONTAS_TAB)
+    apto_ws = sh.worksheet(FLUXO_APTO_TAB)
     months, data = load_projecao(src_ws)
     card_items = load_card_items(contas_ws)
     ctipo = cartao_por_tipo(card_items, len(months))
-    totals = compute_totals(months, data, ctipo)
-    rows = build_rows(months, data, ctipo, totals)
+    cartao_obra_mensal = load_cartao_obra_mensal(apto_ws, months)
+    totals = compute_totals(months, data, ctipo, cartao_obra_mensal)
+    rows = build_rows(months, data, ctipo, cartao_obra_mensal, totals)
 
     base_receita = sum(abs(v) for v in totals["receita_liquida"]) or 1.0
 
-    header_row = ["Linha"] + months + ["TOTAL", "% peso (sobre Receita Líquida)"]
+    header_row = ["Linha", "Classificação"] + months + ["TOTAL", "% peso (sobre Receita Líquida)"]
     out_values = [header_row]
     row_types = ["HEADER"]
-    for kind, label, vals in rows:
+    for kind, label, vals, classif in rows:
         if kind == "HEADER":
-            out_values.append([label] + [""] * (len(months) + 2))
+            out_values.append([label, ""] + [""] * (len(months) + 2))
         else:
             total = sum(vals)
             pct = abs(total) / base_receita * 100
-            out_values.append([label] + [fmt_brl(v) for v in vals] + [fmt_brl(total), f"{pct:.1f}%"])
+            out_values.append([label, classif] + [fmt_brl(v) for v in vals] + [fmt_brl(total), f"{pct:.1f}%"])
         row_types.append(kind)
 
     try:
@@ -110,7 +119,8 @@ def main():
     orig_liquido = data.get("Salário Liquido", [0.0] * len(months))[-1]
     print(f"Reconciliação Receita Líquida (última coluna): calc={totals['receita_liquida'][-1]:.2f} orig={orig_liquido:.2f}")
     print(f"Custos Fixos (total período): {fmt_brl(sum(totals['fixo']))}")
-    print(f"Custos Variáveis (total período, incl. cartão por tipo): {fmt_brl(sum(totals['variavel']))}")
+    print(f"Custos Variáveis (total período, incl. cartão pessoal + cartão obra): {fmt_brl(sum(totals['variavel']))}")
+    print(f"Cartão Obra (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(cartao_obra_mensal[REF_MONTH_INDEX])}")
     print(f"Margem Líquida (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['margem_liquida'][REF_MONTH_INDEX])}")
 
 

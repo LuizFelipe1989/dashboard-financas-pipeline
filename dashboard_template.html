@@ -158,6 +158,11 @@ svg text { font-family: 'Plex Mono Dash', monospace; fill: var(--ink-muted); }
 .bar-list-row .bar-fill { height: 100%; border-radius: 5px; }
 .bar-list-row .val { font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; text-align: right; }
 
+.natureza-group + .natureza-group { margin-top: 16px; }
+.natureza-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--gridline); }
+.natureza-head .name { font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-secondary); }
+.natureza-head .val { font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 500; }
+
 /* obra */
 .obra-meter { display: flex; height: 22px; border-radius: 7px; overflow: hidden; border: 1px solid var(--border); margin: 10px 0 8px; }
 .obra-legend { display: flex; gap: 18px; font-size: 12px; color: var(--ink-secondary); margin-bottom: 16px; }
@@ -172,7 +177,7 @@ table.obra-table tr:last-child td { border-bottom: none; }
 .mini-bar { display: flex; height: 8px; width: 100px; border-radius: 4px; overflow: hidden; background: var(--neutral-track); }
 
 /* DRE resumida */
-.dre-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 4px; }
+.dre-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 4px; }
 .dre-kpi { display: flex; flex-direction: column; gap: 3px; padding: 11px 12px; border-radius: 10px; background: var(--page); }
 .dre-kpi .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; }
 .dre-kpi .value { font-family: 'Plex Mono Dash', monospace; font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -240,11 +245,11 @@ details.dre-detail td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--g
 
   <section class="panel">
     <h2>Fluxo de Caixa Projetado</h2>
-    <div class="panel-sub">Resultado mensal (barras) e saldo acumulado (linha) — 14 meses</div>
+    <div class="panel-sub">Entradas, saídas e saldo líquido mês a mês — parte direto da DRE, 14 meses</div>
     <div class="chart-legend">
-      <span class="item"><span class="swatch" style="background:var(--good)"></span>Mês superavitário</span>
-      <span class="item"><span class="swatch" style="background:var(--critical)"></span>Mês deficitário</span>
-      <span class="item"><span class="line-swatch" style="background:var(--accent)"></span>Saldo acumulado</span>
+      <span class="item"><span class="swatch" style="background:var(--good)"></span>Entradas</span>
+      <span class="item"><span class="swatch" style="background:var(--critical)"></span>Saídas</span>
+      <span class="item"><span class="line-swatch" style="background:var(--accent)"></span>Saldo líquido acumulado</span>
     </div>
     <div class="chart-wrap wide-scroll">
       <svg id="fluxo-chart" width="100%" viewBox="0 0 720 300" preserveAspectRatio="xMidYMid meet"></svg>
@@ -299,7 +304,7 @@ details.dre-detail td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--g
     </div>
     <div class="wide-scroll">
       <table class="obra-table">
-        <thead><tr><th>Classificação</th><th class="num">Previsto</th><th>Status</th><th class="num">% Pago</th></tr></thead>
+        <thead><tr><th>Classificação</th><th class="num">Previsto</th><th class="num">Pago</th><th class="num">Pendente</th><th>Status</th><th class="num">% Pago</th></tr></thead>
         <tbody id="obra-table-body"></tbody>
       </table>
     </div>
@@ -309,7 +314,7 @@ details.dre-detail td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--g
     <section class="panel">
       <h2>Gastos por Tipo</h2>
       <div class="panel-sub" id="tipo-sub">—</div>
-      <div class="bar-list" id="tipo-list"></div>
+      <div id="natureza-groups"></div>
     </section>
 
     <section class="panel">
