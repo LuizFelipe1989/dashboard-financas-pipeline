@@ -7,8 +7,15 @@ OUT_TAB = "DRE_Mensal"
 
 GRUPO_LABEL = {
     "DEDUCOES": "Dedução", "MORADIA_GABI": "Informativo (Gabi)", "FIXO": "Fixo",
-    "VARIAVEL": "Variável", "RECEITA_BRUTA": "Receita", "OUTRAS_RECEITAS": "Receita",
-    "INVESTIMENTOS": "Investimento",
+    "VARIAVEL": "Variável", "VARIAVEL_OBRA": "Variável Obra", "RECEITA_BRUTA": "Receita",
+    "OUTRAS_RECEITAS": "Receita", "INVESTIMENTOS": "Investimento",
+}
+
+SUBTOTAL_LABEL = {
+    "DEDUCOES": "Salário Líquido", "MORADIA_GABI": "Subtotal Moradia (Gabi)",
+    "FIXO": "Subtotal Despesas Fixas", "VARIAVEL": "Subtotal Despesas Variáveis",
+    "VARIAVEL_OBRA": "Subtotal Despesas Variável Obra", "OUTRAS_RECEITAS": "Subtotal Outras Receitas",
+    "INVESTIMENTOS": "Subtotal Investimentos",
 }
 
 
@@ -42,18 +49,23 @@ def build_rows(months, data, cartao_tipo, cartao_obra_mensal, totals):
             if grp_key == "VARIAVEL":
                 for tipo, vals in sorted(cartao_tipo.items(), key=lambda kv: -sum(kv[1])):
                     final_rows.append(("LINE", f"Cartão Pessoal — {tipo}", vals, "Variável"))
-                final_rows.append(("LINE", "Cartão Obra (parcelas — Fluxo_Apto_Realizado)", cartao_obra_mensal, "Variável"))
-                final_rows.append(("SUBTOTAL", "Subtotal", totals["variavel"], "Variável"))
+                final_rows.append(("SUBTOTAL", SUBTOTAL_LABEL["VARIAVEL"], totals["variavel"], "Variável"))
+            elif grp_key == "VARIAVEL_OBRA":
+                final_rows.append(("LINE", "Cartão Obra (parcelas — Fluxo_Apto_Realizado)", cartao_obra_mensal, "Variável Obra"))
+                final_rows.append(("SUBTOTAL", SUBTOTAL_LABEL["VARIAVEL_OBRA"], totals["variavel_obra"], "Variável Obra"))
+            elif grp_key == "RECEITA_BRUTA":
+                pass  # linha única — subtotal seria redundante
+            elif grp_key == "DEDUCOES":
+                # "Salário Líquido" = Salário Bruto + Deduções, não a soma das deduções sozinha.
+                final_rows.append(("SUBTOTAL", SUBTOTAL_LABEL["DEDUCOES"], totals["receita_liquida"], GRUPO_LABEL.get(grp_key, "")))
             elif grp_key is not None:
-                final_rows.append(("SUBTOTAL", "Subtotal", group_sums[grp_key], GRUPO_LABEL.get(grp_key, "")))
+                final_rows.append(("SUBTOTAL", SUBTOTAL_LABEL.get(grp_key, "Subtotal"), group_sums[grp_key], GRUPO_LABEL.get(grp_key, "")))
             i = j
         else:
             i += 1
 
-    final_rows.append(("HEADER", "(=) RECEITA LÍQUIDA", None, ""))
-    final_rows.append(("SUBTOTAL", "Receita Líquida", totals["receita_liquida"], "Receita"))
     final_rows.append(("HEADER", "(=) MARGEM LÍQUIDA", None, ""))
-    final_rows.append(("SUBTOTAL", "Margem Líquida (Resultado do Mês)", totals["margem_liquida"], "Resultado"))
+    final_rows.append(("SUBTOTAL", "Margem Líquida (Entradas − Saídas)", totals["margem_liquida"], "Resultado"))
 
     return final_rows
 
@@ -119,7 +131,8 @@ def main():
     orig_liquido = data.get("Salário Liquido", [0.0] * len(months))[-1]
     print(f"Reconciliação Receita Líquida (última coluna): calc={totals['receita_liquida'][-1]:.2f} orig={orig_liquido:.2f}")
     print(f"Custos Fixos (total período): {fmt_brl(sum(totals['fixo']))}")
-    print(f"Custos Variáveis (total período, incl. cartão pessoal + cartão obra): {fmt_brl(sum(totals['variavel']))}")
+    print(f"Custos Variáveis (total período, cartão pessoal incl.): {fmt_brl(sum(totals['variavel']))}")
+    print(f"Custos Variável Obra (total período, Pix+Cartão): {fmt_brl(sum(totals['variavel_obra']))}")
     print(f"Cartão Obra (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(cartao_obra_mensal[REF_MONTH_INDEX])}")
     print(f"Margem Líquida (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['margem_liquida'][REF_MONTH_INDEX])}")
 

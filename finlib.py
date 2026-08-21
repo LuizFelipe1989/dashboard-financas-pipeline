@@ -68,7 +68,8 @@ GROUPS = [
     ("Seguro Residencial  Caixa", "VARIAVEL"),
     ("Terapia", "VARIAVEL"),
     ("Barbearia + Farmácia", "VARIAVEL"),
-    ("Pix Pagamentos Obra", "VARIAVEL"),  # obra (Pix) é despesa variável, entra no total
+    ("(-) CUSTOS VARIÁVEIS — OBRA", None),
+    ("Pix Pagamentos Obra", "VARIAVEL_OBRA"),
     ("(+) OUTRAS RECEITAS / APORTES", None),
     ("Gabriela", "OUTRAS_RECEITAS"),
     ("(-) INVESTIMENTOS", None),
@@ -217,6 +218,35 @@ def load_cartao_obra_mensal(ws, proj_months):
     return aligned
 
 
+# Extrato BB (conta 3494-0 / 48516-0), posição em 20/08/2026 — atualize manualmente
+# a cada novo extrato até termos ingestão automática.
+SALDO_DISPONIVEL_IMEDIATO = 25371.41
+INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76  # RF Ref DI Plus Ágil, dado em garantia do limite do cartão
+
+
+def compute_financiamento_obra(months, cartao_obra_mensal, receita_liquida, ref_month_index=REF_MONTH_INDEX,
+                                saldo_disponivel=SALDO_DISPONIVEL_IMEDIATO, investimento_total=INVESTIMENTO_BLOQUEADO_TOTAL):
+    """Quando a parcela do cartão da obra supera o salário líquido do mês, a
+    diferença sai do investimento para o caixa nunca fechar negativo. Essa
+    mesma lógica alimenta tanto o gráfico de Financiamento da Obra quanto o
+    Fluxo de Caixa (que soma de volta o valor coberto pelo investimento, já
+    que essa parte não sai do bolso) — é o que faz os dois baterem entre si."""
+    n = len(months)
+    saque_mensal = [0.0] * n
+    saldo_investimento = [investimento_total] * n
+    running = investimento_total
+    for i in range(n):
+        if i >= ref_month_index:
+            parcela = abs(cartao_obra_mensal[i])
+            salario = receita_liquida[i]
+            saque = max(0.0, parcela - salario)
+            running -= saque
+            saque_mensal[i] = saque
+        saldo_investimento[i] = running
+    return {"saque_mensal": saque_mensal, "saldo_investimento": saldo_investimento,
+            "saldo_disponivel_imediato": saldo_disponivel, "investimento_bloqueado_total": investimento_total}
+
+
 def group_sum(data, group_name, n_months, groups=GROUPS):
     tot = [0.0] * n_months
     for label, group in groups:
@@ -242,23 +272,26 @@ def compute_totals(months, data, cartao_tipo, cartao_obra_mensal=None):
     fixo = group_sum(data, "FIXO", n)
     moradia_gabi = group_sum(data, "MORADIA_GABI", n)
     variavel_sem_cartao = group_sum(data, "VARIAVEL", n)
-    variavel = [a + b + c for a, b, c in zip(variavel_sem_cartao, cartao_pessoal_total, cartao_obra_mensal)]
+    variavel = [a + b for a, b in zip(variavel_sem_cartao, cartao_pessoal_total)]
+    obra_pix = group_sum(data, "VARIAVEL_OBRA", n)
+    variavel_obra = [a + b for a, b in zip(obra_pix, cartao_obra_mensal)]
     outras_receitas = group_sum(data, "OUTRAS_RECEITAS", n)
     investimentos = group_sum(data, "INVESTIMENTOS", n)
 
     # moradia_gabi is informational only (paid by Gabi) — excluded from margem_liquida.
     margem_liquida = [
-        rl + orc + f + v + inv
-        for rl, orc, f, v, inv in zip(receita_liquida, outras_receitas, fixo, variavel, investimentos)
+        rl + orc + f + v + vo + inv
+        for rl, orc, f, v, vo, inv in zip(receita_liquida, outras_receitas, fixo, variavel, variavel_obra, investimentos)
     ]
     entradas = [rl + orc for rl, orc in zip(receita_liquida, outras_receitas)]
-    saidas = [f + v for f, v in zip(fixo, variavel)]
+    saidas = [f + v + vo for f, v, vo in zip(fixo, variavel, variavel_obra)]
     saldo_liquido = [e + s for e, s in zip(entradas, saidas)]
     return {
         "receita_bruta": receita_bruta, "deducoes": deducoes, "receita_liquida": receita_liquida,
         "fixo": fixo, "moradia_gabi": moradia_gabi, "variavel_sem_cartao": variavel_sem_cartao,
         "cartao_pessoal_total": cartao_pessoal_total, "cartao_obra_mensal": cartao_obra_mensal,
-        "variavel": variavel, "outras_receitas": outras_receitas,
+        "variavel": variavel, "obra_pix": obra_pix, "variavel_obra": variavel_obra,
+        "outras_receitas": outras_receitas,
         "investimentos": investimentos, "margem_liquida": margem_liquida,
         "entradas": entradas, "saidas": saidas, "saldo_liquido": saldo_liquido,
     }

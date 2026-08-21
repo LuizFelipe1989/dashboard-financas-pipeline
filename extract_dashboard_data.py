@@ -4,36 +4,36 @@ from collections import OrderedDict
 from finlib import (
     get_clients, GROUPS, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals, fmt_brl,
+    compute_financiamento_obra,
 )
-from build_dre import GRUPO_LABEL
+from build_dre import SUBTOTAL_LABEL
 from build_obra import load_items_and_colors, payment_summary, SRC_TAB as OBRA_TAB
 from build_gastos_tipo import group_by_natureza, NATUREZA_ORDEM
 
 OUT_PATH = "dashboard_data.json"
 
-# Extrato BB (conta 3494-0 / 48516-0), posição em 20/08/2026 — atualize manualmente
-# a cada novo extrato até termos ingestão automática.
-INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76  # RF Ref DI Plus Ágil, dado em garantia do limite do cartão
 
-
-def dre_detalhe_for_month(data, ctipo, cartao_obra_mensal, month_idx, base_receita):
-    """Flat line-item list (label, grupo, valor, % peso) for one reference month —
-    feeds the dashboard's drill-down table."""
+def dre_detalhe_for_month(data, ctipo, cartao_obra_mensal, totals, month_idx, base_receita):
+    """Sectioned line-item list (kind HEADER/LINE/SUBTOTAL) for one reference month,
+    mirroring the exact structure of build_dre.build_rows() / Projeção Gastos_Atualizados:
+    Salário Bruto -> deduções -> Salário Líquido -> Fixo (subtotal) -> Variável (subtotal)
+    -> Variável Obra (subtotal) -> Margem Líquida. `grupo` is kept for internal filtering
+    (e.g. Composição das Despesas) but is not meant to be rendered as a column."""
     rows = []
     i = 0
     while i < len(GROUPS):
         label, group = GROUPS[i]
         if group is None:
-            grp_key = None
+            rows.append({"kind": "HEADER", "label": label, "grupo": None, "valor": None, "pct_peso": None})
             j = i + 1
+            grp_key = None
             while j < len(GROUPS) and GROUPS[j][1] is not None:
                 sub_label, sub_group = GROUPS[j]
                 grp_key = sub_group
                 if sub_label in data:
                     val = data[sub_label][month_idx]
                     rows.append({
-                        "label": sub_label.replace("#2", ""), "grupo": grp_key,
-                        "grupo_label": GRUPO_LABEL.get(sub_group, sub_group), "valor": val,
+                        "kind": "LINE", "label": sub_label.replace("#2", ""), "grupo": grp_key, "valor": val,
                         "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
                     })
                 j += 1
@@ -41,17 +41,53 @@ def dre_detalhe_for_month(data, ctipo, cartao_obra_mensal, month_idx, base_recei
                 for tipo, vals in sorted(ctipo.items(), key=lambda kv: -sum(kv[1])):
                     val = vals[month_idx]
                     rows.append({
-                        "label": f"Cartão Pessoal — {tipo}", "grupo": "VARIAVEL", "grupo_label": "Variável",
-                        "valor": val, "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
+                        "kind": "LINE", "label": f"Cartão Pessoal — {tipo}", "grupo": "VARIAVEL", "valor": val,
+                        "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
                     })
+                val = totals["variavel"][month_idx]
+                rows.append({
+                    "kind": "SUBTOTAL", "label": SUBTOTAL_LABEL["VARIAVEL"], "grupo": "VARIAVEL", "valor": val,
+                    "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
+                })
+            elif grp_key == "VARIAVEL_OBRA":
                 val = cartao_obra_mensal[month_idx]
                 rows.append({
-                    "label": "Cartão Obra (parcelas)", "grupo": "VARIAVEL", "grupo_label": "Variável",
+                    "kind": "LINE", "label": "Cartão Obra (parcelas — Fluxo_Apto_Realizado)", "grupo": "VARIAVEL_OBRA",
                     "valor": val, "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
+                })
+                val = totals["variavel_obra"][month_idx]
+                rows.append({
+                    "kind": "SUBTOTAL", "label": SUBTOTAL_LABEL["VARIAVEL_OBRA"], "grupo": "VARIAVEL_OBRA", "valor": val,
+                    "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
+                })
+            elif grp_key == "RECEITA_BRUTA":
+                pass  # linha única — subtotal seria redundante
+            elif grp_key == "DEDUCOES":
+                val = totals["receita_liquida"][month_idx]
+                rows.append({
+                    "kind": "SUBTOTAL", "label": SUBTOTAL_LABEL["DEDUCOES"], "grupo": "DEDUCOES", "valor": val,
+                    "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
+                })
+            elif grp_key is not None:
+                key_totals = {
+                    "MORADIA_GABI": totals["moradia_gabi"], "FIXO": totals["fixo"],
+                    "OUTRAS_RECEITAS": totals["outras_receitas"], "INVESTIMENTOS": totals["investimentos"],
+                }
+                val = key_totals[grp_key][month_idx]
+                rows.append({
+                    "kind": "SUBTOTAL", "label": SUBTOTAL_LABEL.get(grp_key, "Subtotal"), "grupo": grp_key, "valor": val,
+                    "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
                 })
             i = j
         else:
             i += 1
+
+    rows.append({"kind": "HEADER", "label": "(=) MARGEM LÍQUIDA", "grupo": None, "valor": None, "pct_peso": None})
+    val = totals["margem_liquida"][month_idx]
+    rows.append({
+        "kind": "SUBTOTAL", "label": "Margem Líquida (Entradas − Saídas)", "grupo": "MARGEM", "valor": val,
+        "pct_peso": val / base_receita * 100 if base_receita else 0,
+    })
     return rows
 
 
@@ -104,12 +140,17 @@ def main():
     cartao_obra_mensal = load_cartao_obra_mensal(apto_ws, months)
     totals = compute_totals(months, proj_data, ctipo, cartao_obra_mensal)
 
-    saldo_mes = [sl + inv for sl, inv in zip(totals["saldo_liquido"], totals["investimentos"])]
-    saldo_acumulado = []
+    # Financiamento da obra e Fluxo de Caixa compartilham a mesma lógica de saque —
+    # é o que faz o saldo final de um bater com o do outro (double-check pedido).
+    fin = compute_financiamento_obra(months, cartao_obra_mensal, totals["receita_liquida"])
+    saldo_mes = [sl + inv + sq for sl, inv, sq in zip(totals["saldo_liquido"], totals["investimentos"], fin["saque_mensal"])]
+    raw_cum = []
     running = 0.0
     for v in saldo_mes:
         running += v
-        saldo_acumulado.append(running)
+        raw_cum.append(running)
+    anchor = raw_cum[ref] - fin["saldo_disponivel_imediato"]
+    saldo_acumulado = [v - anchor for v in raw_cum]
 
     # ---- DRE resumo (mês de referência) ----
     base_receita = abs(totals["receita_liquida"][ref] + totals["outras_receitas"][ref]) or 1.0
@@ -124,10 +165,7 @@ def main():
         "margem_liquida": totals["margem_liquida"][ref],
         "margem_liquida_pct": totals["margem_liquida"][ref] / base_receita * 100,
     }
-    dre_detalhe = sorted(
-        dre_detalhe_for_month(proj_data, ctipo, cartao_obra_mensal, ref, base_receita),
-        key=lambda r: -abs(r["valor"]),
-    )
+    dre_detalhe = dre_detalhe_for_month(proj_data, ctipo, cartao_obra_mensal, totals, ref, base_receita)
 
     # ---- Gastos por Tipo: Fixo Mensal / Parcelado / Discricionário, com subtotais ----
     by_natureza = group_by_natureza(card_items)
@@ -165,31 +203,19 @@ def main():
     class_rollup = [{"classificacao": c, **acc} for c, acc in sorted(by_class.items(), key=lambda kv: -kv[1]["previsto"])]
 
     pagamentos = payment_summary(items)
+    # "Cartão a vencer" reconciliado com o mesmo dado mensal do gráfico Cartão Obra —
+    # soma de Fluxo_Apto_Realizado!linha 55 a partir do mês de referência, não a
+    # classificação por cor das células do item table (que só reflete parcelas já
+    # lançadas linha a linha e diverge do agendamento consolidado da linha 55).
+    pagamentos["cartao_futuro"] = sum(abs(v) for v in cartao_obra_mensal[ref:])
     obra_out = {
         "previsto": grand_previsto, "pago": grand_pago, "pendente": grand_pendente, "futuro": grand_futuro,
         "por_classificacao": class_rollup,
     }
 
-    # ---- Financiamento da obra: a parcela do cartão da obra é paga com o salário
-    # líquido do mês; quando a parcela supera o salário, a diferença sai do
-    # investimento (RF Ref DI Plus Ágil) para o caixa do mês nunca ficar negativo.
-    saldo_investimento_series = []
-    saque_mensal_series = []
-    saldo_investimento = INVESTIMENTO_BLOQUEADO_TOTAL
-    for i in range(n):
-        if i >= ref:
-            parcela = abs(cartao_obra_mensal[i])
-            salario = totals["receita_liquida"][i]
-            saque = max(0.0, parcela - salario)
-            saldo_investimento -= saque
-        else:
-            saque = 0.0
-        saque_mensal_series.append(saque)
-        saldo_investimento_series.append(saldo_investimento)
-
     jul27_idx = next((i for i, m in enumerate(months) if m.startswith("jul./27")), n - 1)
 
-    alerts = build_alerts(months, ref, totals, cartao_obra_mensal, obra_out, by_natureza, saldo_investimento_series[ref:])
+    alerts = build_alerts(months, ref, totals, cartao_obra_mensal, obra_out, by_natureza, fin["saldo_investimento"][ref:])
 
     personal_n = len([it for it in card_items if it["tipo"] != "Obra Apto"])
     obra_card_n = len([it for it in card_items if it["tipo"] == "Obra Apto"])
@@ -216,9 +242,9 @@ def main():
         "obra": obra_out,
         "pagamentos": pagamentos,
         "financiamento_obra": {
-            "investimento_bloqueado_total": INVESTIMENTO_BLOQUEADO_TOTAL,
-            "saque_mensal": saque_mensal_series,
-            "saldo_investimento": saldo_investimento_series,
+            "investimento_bloqueado_total": fin["investimento_bloqueado_total"],
+            "saque_mensal": fin["saque_mensal"],
+            "saldo_investimento": fin["saldo_investimento"],
         },
         "n_itens_cartao_pessoal": personal_n,
         "n_itens_obra_cartao": obra_card_n,
@@ -236,8 +262,9 @@ def main():
     for g in gastos_por_natureza:
         print(f"  Gastos {g['natureza']}: {g['total']:.2f} ({g['pct']:.1f}%)")
     print(f"Pagamentos -> Pago total: {pagamentos['pago_total']:.2f} | Pix pendente: {pagamentos['pix_pendente']:.2f} | Cartão futuro: {pagamentos['cartao_futuro']:.2f}")
-    print(f"Financiamento obra: saldo em {months[jul27_idx]}: {saldo_investimento_series[jul27_idx]:.2f} (partindo de {INVESTIMENTO_BLOQUEADO_TOTAL:.2f})")
+    print(f"Financiamento obra: saldo em {months[jul27_idx]}: {fin['saldo_investimento'][jul27_idx]:.2f} (partindo de {fin['investimento_bloqueado_total']:.2f})")
     print(f"Saldo Acumulado final ({months[-1]}): {saldo_acumulado[-1]:.2f}")
+    print(f"[double-check] Saldo Acumulado + Saldo Investimento (último mês): {(saldo_acumulado[-1] + fin['saldo_investimento'][-1]):.2f}")
     print(f"Alertas gerados: {len(alerts)}")
 
 

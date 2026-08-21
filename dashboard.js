@@ -179,12 +179,17 @@
     const tbody = document.getElementById('dre-detail-body');
     data.dre_detalhe.forEach((row) => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${row.label}</td>
-        <td><span class="grupo-chip ${row.grupo}">${row.grupo_label}</span></td>
-        <td class="num">${moneySpan(row.valor)}</td>
-        <td class="num">${fmt1pct(row.pct_peso)}</td>
-      `;
+      if (row.kind === 'HEADER') {
+        tr.className = 'row-header';
+        tr.innerHTML = `<td colspan="3">${row.label}</td>`;
+      } else {
+        tr.className = row.kind === 'SUBTOTAL' ? 'row-subtotal' : 'row-line';
+        tr.innerHTML = `
+          <td>${row.label}</td>
+          <td class="num">${moneySpan(row.valor)}</td>
+          <td class="num">${fmt1pct(row.pct_peso)}</td>
+        `;
+      }
       tbody.appendChild(tr);
     });
   })();
@@ -353,7 +358,7 @@
     meter.innerHTML = `
       <div style="width:${o.pago / lancado * 100}%; background: var(--good)"></div>
       <div style="width:${o.pendente / lancado * 100}%; background: var(--warning)"></div>
-      <div style="width:${o.futuro / lancado * 100}%; background: var(--neutral-track)"></div>
+      <div style="width:${o.futuro / lancado * 100}%; background: var(--future)"></div>
     `;
 
     const tbody = document.getElementById('obra-table-body');
@@ -366,13 +371,13 @@
         <td>${r.classificacao}</td>
         <td class="num">${fmt0(r.previsto)}</td>
         <td class="num">${fmt0(r.pago)}</td>
+        <td class="num">${fmt1pct(pct)}</td>
         <td class="num">${fmt0(r.pendente)}</td>
         <td><div class="mini-bar">
           <div style="width:${r.pago / denom * 100}%; background: var(--good)"></div>
           <div style="width:${r.pendente / denom * 100}%; background: var(--warning)"></div>
-          <div style="width:${r.futuro / denom * 100}%; background: var(--neutral-track)"></div>
+          <div style="width:${r.futuro / denom * 100}%; background: var(--future)"></div>
         </div></td>
-        <td class="num">${fmt1pct(pct)}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -410,26 +415,23 @@
   // ---------- Composição de Despesas do Mês (a partir da DRE, linhas Fixo+Variável) ----------
   (function () {
     const items = data.dre_detalhe
-      .filter((r) => r.grupo === 'FIXO' || r.grupo === 'VARIAVEL')
-      .sort((a, b) => abs(b.valor) - abs(a.valor))
-      .slice(0, 7);
-    const total = items.reduce((s, r) => s + abs(r.valor), 0) || 1;
+      .filter((r) => r.kind === 'LINE' && (r.grupo === 'FIXO' || r.grupo === 'VARIAVEL'))
+      .sort((a, b) => abs(b.valor) - abs(a.valor));
+    const total = items.reduce((s, r) => s + r.valor, 0);
     document.getElementById('composicao-sub').textContent =
-      monthShort(data.months[REF]) + ' — principais linhas de saída (Fixo + Variável)';
+      monthShort(data.months[REF]) + ' — linhas de saída (Fixo + Variável)';
 
     const list = document.getElementById('composicao-list');
-    items.forEach((r, i) => {
-      const pct = abs(r.valor) / total * 100;
-      const color = `var(--cat-${(i % 5) + 1})`;
+    items.forEach((r) => {
       const row = document.createElement('div');
-      row.className = 'bar-list-row';
-      row.innerHTML = `
-        <span class="name">${r.label}</span>
-        <span class="bar-track"><span class="bar-fill" style="width:${pct}%; background:${color}"></span></span>
-        <span class="val">${moneySpan(r.valor)}</span>
-      `;
+      row.className = 'plain-list-row';
+      row.innerHTML = `<span class="name">${r.label}</span><span class="val">${moneySpan(r.valor)}</span>`;
       list.appendChild(row);
     });
+    const totalRow = document.createElement('div');
+    totalRow.className = 'plain-list-row total';
+    totalRow.innerHTML = `<span class="name">Total</span><span class="val">${moneySpan(total)}</span>`;
+    list.appendChild(totalRow);
   })();
 
   // ---------- alertas ----------

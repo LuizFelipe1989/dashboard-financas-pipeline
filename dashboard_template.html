@@ -32,6 +32,7 @@
   --critical: #BC5B4B;
   --critical-soft: #F7E6E1;
   --neutral-track: #F0E9DA;
+  --future: #A7B4C9;
   --cat-1: #5487C4; --cat-2: #D3894C; --cat-3: #3FA98A; --cat-4: #C4A048; --cat-5: #C57A96;
   --shadow: 0 1px 2px rgba(52,48,42,0.03), 0 6px 20px rgba(52,48,42,0.03);
   --radius: 14px;
@@ -56,6 +57,7 @@
     --critical: #E08D7C;
     --critical-soft: #3C241F;
     --neutral-track: #362E20;
+    --future: #6C7C99;
     --cat-1: #7EA9E0; --cat-2: #E0A374; --cat-3: #5FCBAA; --cat-4: #E0C374; --cat-5: #E09FBB;
     --shadow: 0 1px 2px rgba(0,0,0,0.3);
   }
@@ -70,6 +72,7 @@
   --warning: #E0B36A; --warning-soft: #3A2D16;
   --critical: #E08D7C; --critical-soft: #3C241F;
   --neutral-track: #362E20;
+  --future: #6C7C99;
   --cat-1: #7EA9E0; --cat-2: #E0A374; --cat-3: #5FCBAA; --cat-4: #E0C374; --cat-5: #E09FBB;
 }
 :root[data-theme="light"] {
@@ -82,6 +85,7 @@
   --warning: #C68C3E; --warning-soft: #F8EEDA;
   --critical: #BC5B4B; --critical-soft: #F7E6E1;
   --neutral-track: #F0E9DA;
+  --future: #A7B4C9;
   --cat-1: #5487C4; --cat-2: #D3894C; --cat-3: #3FA98A; --cat-4: #C4A048; --cat-5: #C57A96;
 }
 
@@ -158,6 +162,13 @@ svg text { font-family: 'Plex Mono Dash', monospace; fill: var(--ink-muted); }
 .bar-list-row .bar-fill { height: 100%; border-radius: 5px; }
 .bar-list-row .val { font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; text-align: right; }
 
+.plain-list { display: flex; flex-direction: column; gap: 2px; }
+.plain-list-row { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; font-size: 12.5px; padding: 5px 0; border-bottom: 1px solid var(--gridline); }
+.plain-list-row .name { color: var(--ink-secondary); }
+.plain-list-row .val { font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.plain-list-row.total { border-bottom: none; border-top: 1px solid var(--ink-muted); margin-top: 4px; padding-top: 9px; font-weight: 600; }
+.plain-list-row.total .name, .plain-list-row.total .val { color: var(--ink); }
+
 .natureza-group + .natureza-group { margin-top: 16px; }
 .natureza-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--gridline); }
 .natureza-head .name { font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-secondary); }
@@ -191,13 +202,17 @@ details.dre-detail table { width: 100%; border-collapse: collapse; font-size: 12
 details.dre-detail th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; padding: 0 8px 6px 0; border-bottom: 1px solid var(--gridline); }
 details.dre-detail th.num, details.dre-detail td.num { text-align: right; font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; }
 details.dre-detail td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--gridline); }
-.grupo-chip { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 1px 6px; border-radius: 20px; font-weight: 600; }
-.grupo-chip.FIXO { background: var(--cat-1); color: #fff; opacity: 0.85; }
-.grupo-chip.VARIAVEL { background: var(--cat-2); color: #fff; opacity: 0.85; }
-.grupo-chip.OBRA { background: var(--cat-5); color: #fff; opacity: 0.85; }
-.grupo-chip.MORADIA_GABI { background: var(--cat-3); color: #fff; opacity: 0.85; }
-.grupo-chip.RECEITA_BRUTA, .grupo-chip.OUTRAS_RECEITAS { background: var(--good); color: #fff; opacity: 0.85; }
-.grupo-chip.DEDUCOES { background: var(--neutral-track); color: var(--ink-secondary); }
+details.dre-detail tr.row-header td { font-weight: 600; color: var(--ink-secondary); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; padding-top: 12px; border-bottom-color: transparent; }
+details.dre-detail tr.row-header:first-child td { padding-top: 4px; }
+details.dre-detail tr.row-subtotal td { font-weight: 600; border-bottom: 1px solid var(--ink-muted); }
+details.dre-detail tr.row-line td:first-child { padding-left: 10px; color: var(--ink-secondary); }
+
+details.obra-detail { margin-top: 6px; }
+details.obra-detail summary { cursor: pointer; font-size: 12.5px; color: var(--accent); font-weight: 500; list-style: none; display: inline-flex; align-items: center; gap: 5px; }
+details.obra-detail summary::-webkit-details-marker { display: none; }
+details.obra-detail summary::before { content: '▸'; font-size: 10px; transition: transform 0.15s; }
+details.obra-detail[open] summary::before { transform: rotate(90deg); }
+details.obra-detail .wide-scroll { margin-top: 12px; }
 
 /* compromisso da obra + financiamento */
 .stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
@@ -265,7 +280,7 @@ details.dre-detail td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--g
       <summary>Ver detalhamento linha a linha</summary>
       <div class="wide-scroll">
         <table>
-          <thead><tr><th>Linha</th><th>Grupo</th><th class="num">Valor</th><th class="num">% peso</th></tr></thead>
+          <thead><tr><th>Linha</th><th class="num">Valor</th><th class="num">% peso</th></tr></thead>
           <tbody id="dre-detail-body"></tbody>
         </table>
       </div>
@@ -300,14 +315,17 @@ details.dre-detail td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--g
     <div class="obra-legend">
       <span class="item"><span class="swatch" style="background:var(--good)"></span>Pago</span>
       <span class="item"><span class="swatch" style="background:var(--warning)"></span>Pendente</span>
-      <span class="item"><span class="swatch" style="background:var(--neutral-track); border:1px solid var(--border)"></span>Futuro</span>
+      <span class="item"><span class="swatch" style="background:var(--future)"></span>Futuro</span>
     </div>
-    <div class="wide-scroll">
-      <table class="obra-table">
-        <thead><tr><th>Classificação</th><th class="num">Previsto</th><th class="num">Pago</th><th class="num">Pendente</th><th>Status</th><th class="num">% Pago</th></tr></thead>
-        <tbody id="obra-table-body"></tbody>
-      </table>
-    </div>
+    <details class="obra-detail">
+      <summary>Ver detalhamento por classificação</summary>
+      <div class="wide-scroll">
+        <table class="obra-table">
+          <thead><tr><th>Classificação</th><th class="num">Previsto</th><th class="num">Pago</th><th class="num">% Pago</th><th class="num">Pendente</th><th>Status</th></tr></thead>
+          <tbody id="obra-table-body"></tbody>
+        </table>
+      </div>
+    </details>
   </section>
 
   <div class="grid-2">
@@ -320,7 +338,7 @@ details.dre-detail td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--g
     <section class="panel">
       <h2>Composição das Despesas do Mês</h2>
       <div class="panel-sub" id="composicao-sub">—</div>
-      <div class="bar-list" id="composicao-list"></div>
+      <div class="plain-list" id="composicao-list"></div>
     </section>
   </div>
 

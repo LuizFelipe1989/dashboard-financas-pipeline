@@ -3,6 +3,10 @@ the dashboard JSON, and assembles the final dashboard.html. Run this, then
 (separately) let the alert agent inspect dashboard_data.json, write alerts
 into it, call write_cell_notes.py for the flagged cells, and re-run just
 build_dashboard_html.py to bake the alerts into the page before publishing.
+
+Not included here: build_historico_cartao.py. It's append-only and meant to run
+once per new bank-app screenshot ingested into Contas!Cartão Pessoal, not on
+every daily tick (that would spam duplicate rows into Gastos_Historico).
 """
 import time
 

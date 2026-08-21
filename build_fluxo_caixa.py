@@ -1,6 +1,7 @@
 from finlib import (
     get_clients, fmt_brl, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, REF_MONTH_INDEX,
-    load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals, red_negative_rule,
+    load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals,
+    compute_financiamento_obra, red_negative_rule,
 )
 
 OUT_TAB = "Fluxo_Caixa"
@@ -19,15 +20,20 @@ def main():
     ctipo = cartao_por_tipo(card_items, n)
     cartao_obra_mensal = load_cartao_obra_mensal(apto_ws, months)
     totals = compute_totals(months, proj_data, ctipo, cartao_obra_mensal)
+    fin = compute_financiamento_obra(months, cartao_obra_mensal, totals["receita_liquida"])
 
     # Fluxo de caixa parte diretamente da DRE: Entradas − Saídas = Saldo Líquido.
-    # Investimentos entra depois do saldo líquido operacional (não é despesa recorrente).
-    saldo_mes = [sl + inv for sl, inv in zip(totals["saldo_liquido"], totals["investimentos"])]
-    saldo_acumulado = []
+    # O valor coberto pelo investimento (fin.saque_mensal) é somado de volta —
+    # não sai do bolso, então não pode aparecer como perda de caixa aqui (é o
+    # mesmo ajuste que faz este saldo bater com o de Financiamento da Obra).
+    saldo_mes = [sl + inv + sq for sl, inv, sq in zip(totals["saldo_liquido"], totals["investimentos"], fin["saque_mensal"])]
+    raw_cum = []
     running = 0.0
     for v in saldo_mes:
         running += v
-        saldo_acumulado.append(running)
+        raw_cum.append(running)
+    anchor = raw_cum[REF_MONTH_INDEX] - fin["saldo_disponivel_imediato"]
+    saldo_acumulado = [v - anchor for v in raw_cum]
 
     header = ["Linha"] + months + ["TOTAL"]
     out_values = [header]
@@ -57,20 +63,25 @@ def main():
     add_row("LINE", "Variáveis (exceto cartão)", totals["variavel_sem_cartao"])
     for tipo, vals in sorted(ctipo.items(), key=lambda kv: -sum(kv[1])):
         add_row("LINE", f"Cartão Pessoal — {tipo}", vals)
-    add_row("LINE", "Cartão Obra (parcelas — Fluxo_Apto_Realizado, linha 55)", cartao_obra_mensal)
     add_row("SUBTOTAL", "Subtotal Custos Variáveis", totals["variavel"])
+
+    add_section("(-) SAÍDAS — CUSTOS VARIÁVEIS OBRA")
+    add_row("LINE", "Pix Pagamentos Obra", totals["obra_pix"])
+    add_row("LINE", "Cartão Obra (parcelas — Fluxo_Apto_Realizado, linha 55)", cartao_obra_mensal)
+    add_row("SUBTOTAL", "Subtotal Variável Obra", totals["variavel_obra"])
 
     add_row("TOTAL", "Total Saídas", totals["saidas"])
 
     add_section("(=) SALDO LÍQUIDO (ENTRADAS − SAÍDAS)")
     add_row("TOTAL", "Saldo Líquido", totals["saldo_liquido"])
 
-    add_section("(-) INVESTIMENTOS")
+    add_section("(-) INVESTIMENTOS / (+) COBERTO PELO INVESTIMENTO DA OBRA")
     add_row("LINE", "Investimentos", totals["investimentos"])
+    add_row("LINE", "Coberto pelo investimento da obra (ver Financiamento da Obra)", fin["saque_mensal"])
 
     add_section("(=) RESULTADO FINAL DO MÊS")
-    add_row("TOTAL", "Saldo do Mês (após investimentos)", saldo_mes)
-    add_row("TOTAL", "Saldo Acumulado", saldo_acumulado)
+    add_row("TOTAL", "Saldo do Mês", saldo_mes)
+    add_row("TOTAL", f"Saldo Acumulado (ancorado no saldo real de {months[REF_MONTH_INDEX]})", saldo_acumulado)
 
     try:
         out_ws = sh.worksheet(OUT_TAB)
@@ -115,7 +126,9 @@ def main():
     print(f"Entradas (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['entradas'][REF_MONTH_INDEX])}")
     print(f"Saídas (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['saidas'][REF_MONTH_INDEX])}")
     print(f"Saldo Líquido (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['saldo_liquido'][REF_MONTH_INDEX])}")
+    print(f"Saldo Acumulado (mês ref, ancorado no saldo real): {fmt_brl(saldo_acumulado[REF_MONTH_INDEX])}")
     print(f"Saldo Acumulado (último mês, {months[-1]}): {fmt_brl(saldo_acumulado[-1])}")
+    print(f"[double-check] Saldo Acumulado + Saldo Investimento (último mês): {fmt_brl(saldo_acumulado[-1] + fin['saldo_investimento'][-1])}")
 
 
 if __name__ == "__main__":
