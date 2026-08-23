@@ -407,6 +407,7 @@
     const inv = data.investimentos;
     if (!inv) return;
     const t = inv.total;
+    const ra = inv.rent_ativa;
     const fmtShare = (v) => 'R$ ' + abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     document.getElementById('invest-sub').textContent = 'Posição atual — aba Investimentos';
@@ -414,8 +415,8 @@
     const tiles = document.getElementById('invest-tiles');
     [
       ['Total Investido', fmt0(t.valor_atual)],
-      ['Rentabilidade Acumulada', moneySpan(t.rent_acum_rs)],
-      ['Rentabilidade Acumulada %', fmt1pct(t.rent_acum_pct)],
+      ['Rentabilidade (posições ativas)', ra.rent_pct !== null ? moneySpan(ra.rent_rs) : '—'],
+      ['Rentabilidade (posições ativas) %', ra.rent_pct !== null ? fmt1pct(ra.rent_pct) : '—'],
     ].forEach(([label, value]) => {
       const el = document.createElement('div');
       el.className = 'stat-tile';
@@ -423,18 +424,27 @@
       tiles.appendChild(el);
     });
 
-    const tbody = document.getElementById('invest-table-body');
-    inv.categorias.forEach((cat) => {
-      const catTr = document.createElement('tr');
-      catTr.className = 'row-subtotal';
-      catTr.innerHTML = `
-        <td>${cat.nome}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
-        <td class="num">${fmt0(cat.valor_atual)}</td>
-        <td class="num">${moneySpan(cat.rent_acum_rs)}</td>
-        <td class="num">${fmt1pct(cat.pct_part)}</td>
-      `;
-      tbody.appendChild(catTr);
-      cat.itens.forEach((it) => {
+    function rentCell(item) {
+      if (item.liquidado) return '<span class="invest-tag">Liquidado</span>';
+      if (item.started_zero) return '<span class="invest-tag">Novo em 2026</span>';
+      return `${moneySpan(item.rent_acum_rs)} <span style="color:var(--ink-muted)">(${fmt1pct(item.rent_acum_pct)})</span>`;
+    }
+
+    function renderGroup(container, group, openByDefault) {
+      const details = document.createElement('details');
+      details.className = 'invest-group';
+      if (openByDefault) details.open = true;
+      const summary = document.createElement('summary');
+      summary.innerHTML = `<span class="name">${group.nome}</span><span class="meta">${fmt0(group.valor_atual)} · ${fmt1pct(group.pct_part)}</span>`;
+      details.appendChild(summary);
+
+      const wrap = document.createElement('div');
+      wrap.className = 'wide-scroll';
+      const table = document.createElement('table');
+      table.className = 'detail-table';
+      table.innerHTML = `<thead><tr><th>Ativo</th><th class="num">Qtd</th><th class="num">Aquisição</th><th class="num">Cotação</th><th class="num">Valor Atual</th><th class="num">Rentabilidade</th></tr></thead>`;
+      const tbody = document.createElement('tbody');
+      group.itens.forEach((it) => {
         const cotacao = it.ticker ? inv.cotacoes[it.ticker] : null;
         const tr = document.createElement('tr');
         tr.className = 'row-line';
@@ -444,12 +454,19 @@
           <td class="num">${it.pm ? fmtShare(it.pm) : '—'}</td>
           <td class="num">${cotacao ? fmtShare(cotacao) : '—'}</td>
           <td class="num">${fmt0(it.valor_atual)}</td>
-          <td class="num">${moneySpan(it.rent_acum_rs)}</td>
-          <td class="num">${fmt1pct(it.pct_part)}</td>
+          <td class="num">${rentCell(it)}</td>
         `;
         tbody.appendChild(tr);
       });
-    });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      details.appendChild(wrap);
+      container.appendChild(details);
+    }
+
+    const groupsEl = document.getElementById('invest-groups');
+    inv.categorias.forEach((cat) => renderGroup(groupsEl, cat, false));
+    renderGroup(groupsEl, inv.maria, false);
 
     const highlights = document.getElementById('invest-highlights');
     if (!inv.highlights || inv.highlights.length === 0) {
@@ -503,23 +520,39 @@
   })();
 
   // ---------- Composição de Despesas do Mês (a partir da DRE, linhas Fixo+Variável) ----------
+  // Selecionável por mês — inclui a projeção de meses futuros (ex: jan./27), não só o
+  // mês de referência.
   (function () {
-    const items = data.dre_detalhe
-      .filter((r) => r.kind === 'LINE' && (r.grupo === 'FIXO' || r.grupo === 'VARIAVEL'))
-      .map((r) => ({ label: r.label, valor: r.vals[REF] }))
-      .sort((a, b) => abs(b.valor) - abs(a.valor));
-    const total = items.reduce((s, r) => s + r.valor, 0);
-    document.getElementById('composicao-sub').textContent =
-      monthShort(data.months[REF]) + ' — linhas de saída (Fixo + Variável)';
-    document.getElementById('composicao-total').innerHTML = moneySpan(total);
-
-    const list = document.getElementById('composicao-list');
-    items.forEach((r) => {
-      const row = document.createElement('div');
-      row.className = 'plain-list-row';
-      row.innerHTML = `<span class="name">${r.label}</span><span class="val">${moneySpan(r.valor)}</span>`;
-      list.appendChild(row);
+    const select = document.getElementById('composicao-month');
+    data.months.forEach((m, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = monthShort(m);
+      select.appendChild(opt);
     });
+    select.value = REF;
+
+    function render(monthIdx) {
+      const items = data.dre_detalhe
+        .filter((r) => r.kind === 'LINE' && (r.grupo === 'FIXO' || r.grupo === 'VARIAVEL'))
+        .map((r) => ({ label: r.label, valor: r.vals[monthIdx] }))
+        .sort((a, b) => abs(b.valor) - abs(a.valor));
+      const total = items.reduce((s, r) => s + r.valor, 0);
+      document.getElementById('composicao-sub').textContent = 'Linhas de saída (Fixo + Variável)';
+      document.getElementById('composicao-total').innerHTML = moneySpan(total);
+
+      const list = document.getElementById('composicao-list');
+      list.innerHTML = '';
+      items.forEach((r) => {
+        const row = document.createElement('div');
+        row.className = 'plain-list-row';
+        row.innerHTML = `<span class="name">${r.label}</span><span class="val">${moneySpan(r.valor)}</span>`;
+        list.appendChild(row);
+      });
+    }
+
+    select.addEventListener('change', () => render(Number(select.value)));
+    render(REF);
   })();
 
   // ---------- alertas ----------

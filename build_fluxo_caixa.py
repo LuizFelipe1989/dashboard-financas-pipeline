@@ -1,8 +1,9 @@
 from finlib import (
     get_clients, fmt_brl, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, DESPESAS_CASA_TAB, REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals,
-    apply_despesas_casa_handover, apply_investimentos_sign, compute_financiamento_obra, red_negative_rule,
+    apply_despesas_casa_handover, neutralize_investimentos_row, compute_financiamento_obra, red_negative_rule,
 )
+from build_investimentos import load_investimentos, get_fundo_obra_balance, SRC_TAB as INVEST_TAB
 
 OUT_TAB = "Fluxo_Caixa"
 
@@ -16,14 +17,18 @@ def main():
 
     months, proj_data = load_projecao(proj_ws)
     apply_despesas_casa_handover(months, proj_data, despesas_casa_ws)
-    apply_investimentos_sign(proj_data)
+    neutralize_investimentos_row(proj_data)
     n = len(months)
 
     card_items = load_card_items(contas_ws)
     ctipo = cartao_por_tipo(card_items, n)
     cartao_obra_mensal = load_cartao_obra_mensal(apto_ws, months)
     totals = compute_totals(months, proj_data, ctipo, cartao_obra_mensal)
-    fin = compute_financiamento_obra(months, cartao_obra_mensal, totals["receita_liquida"])
+
+    invest_categorias, _invest_total = load_investimentos(sh.worksheet(INVEST_TAB))
+    fundo_obra_balance = get_fundo_obra_balance(invest_categorias)
+    fin_kwargs = {"investimento_total": fundo_obra_balance} if fundo_obra_balance is not None else {}
+    fin = compute_financiamento_obra(months, cartao_obra_mensal, totals["receita_liquida"], **fin_kwargs)
 
     # Fluxo de caixa parte diretamente da DRE: Entradas − Saídas = Saldo Líquido.
     # O valor coberto pelo investimento (fin.saque_mensal) é somado de volta —

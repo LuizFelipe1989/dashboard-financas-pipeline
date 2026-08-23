@@ -118,7 +118,7 @@ def load_card_items(ws):
         row = values[r - 1]
         desc = row[CARD_TABLE_COL_DESC] if len(row) > CARD_TABLE_COL_DESC else ""
         desc = desc.strip()
-        if not desc or desc.upper().startswith("TOTAL"):
+        if not desc or desc.strip().upper() == "TOTAL":
             break
         valor = br_to_float(row[CARD_TABLE_COL_VALOR]) if len(row) > CARD_TABLE_COL_VALOR else 0.0
         tipo = row[CARD_TABLE_COL_TIPO].strip() if len(row) > CARD_TABLE_COL_TIPO else ""
@@ -247,7 +247,7 @@ def load_despesas_casa_cartao_mensal(ws, proj_months, from_label=SET_MONTH_LABEL
     items = []
     for row in values[header_idx + 1:]:
         desc = row[7].strip() if len(row) > 7 else ""
-        if not desc or desc.upper().startswith("TOTAL"):
+        if not desc or desc.strip().upper() == "TOTAL":
             break
         valor = br_to_float(row[8]) if len(row) > 8 else 0.0
         m = PARCELA_RE.search(desc)
@@ -292,18 +292,25 @@ def apply_despesas_casa_handover(months, data, despesas_casa_ws, from_label=SET_
     return data
 
 
-def apply_investimentos_sign(data):
-    """A linha 'Investimentos' da Projeção é sempre um aporte (aplicação/criação de
-    fundo) — trata como saída da DRE independente do sinal lançado na planilha."""
+def neutralize_investimentos_row(data):
+    """A linha 'Investimentos' da Projeção tem um único lançamento (R$144.007,23 em
+    jul./26) que era uma estimativa antiga do mesmo fundo hoje rastreado com precisão
+    pelo extrato real (R$74.887,76 — ver compute_financiamento_obra). Mantê-la geraria
+    um número duplicado/confuso na DRE, então ela é zerada aqui: não entra como saída
+    nem como fonte de caixa. Se um aporte recorrente de verdade existir no futuro, essa
+    função pode voltar a repassar o valor da planilha em vez de zerar."""
     if "Investimentos" in data:
-        data["Investimentos"] = [-abs(v) for v in data["Investimentos"]]
+        data["Investimentos"] = [0.0 for _ in data["Investimentos"]]
     return data
 
 
 # Extrato BB (conta 3494-0 / 48516-0), posição em 20/08/2026 — atualize manualmente
 # a cada novo extrato até termos ingestão automática.
 SALDO_DISPONIVEL_IMEDIATO = 25371.41
-INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76  # RF Ref DI Plus Ágil, dado em garantia do limite do cartão
+# Fallback só usado se a leitura ao vivo da aba Investimentos (build_investimentos.
+# get_fundo_obra_balance) falhar — o valor real e atual do RF Ref DI Plus Ágil (fundo
+# dado em garantia do limite do cartão da obra) é lido da planilha a cada rodada.
+INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76
 
 
 def compute_financiamento_obra(months, cartao_obra_mensal, receita_liquida, ref_month_index=REF_MONTH_INDEX,

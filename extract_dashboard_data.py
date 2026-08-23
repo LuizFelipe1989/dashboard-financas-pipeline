@@ -4,12 +4,15 @@ from collections import OrderedDict
 from finlib import (
     get_clients, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, DESPESAS_CASA_TAB, REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals, fmt_brl,
-    apply_despesas_casa_handover, apply_investimentos_sign, compute_financiamento_obra,
+    apply_despesas_casa_handover, neutralize_investimentos_row, compute_financiamento_obra,
 )
 from build_dre import build_rows
 from build_obra import load_items_and_colors, payment_summary, SRC_TAB as OBRA_TAB
 from build_gastos_tipo import group_by_natureza, NATUREZA_ORDEM
-from build_investimentos import load_investimentos, ensure_live_quotes, compute_highlights, SRC_TAB as INVEST_TAB
+from build_investimentos import (
+    load_investimentos, load_carteira_maria, ensure_live_quotes, get_fundo_obra_balance,
+    compute_rentabilidade_ativa, compute_highlights, SRC_TAB as INVEST_TAB,
+)
 
 OUT_PATH = "dashboard_data.json"
 
@@ -76,7 +79,7 @@ def main():
     despesas_casa_ws = sh.worksheet(DESPESAS_CASA_TAB)
     months, proj_data = load_projecao(proj_ws)
     apply_despesas_casa_handover(months, proj_data, despesas_casa_ws)
-    apply_investimentos_sign(proj_data)
+    neutralize_investimentos_row(proj_data)
     n = len(months)
     ref = REF_MONTH_INDEX
 
@@ -85,9 +88,22 @@ def main():
     cartao_obra_mensal = load_cartao_obra_mensal(apto_ws, months)
     totals = compute_totals(months, proj_data, ctipo, cartao_obra_mensal)
 
+    # Investimentos carregado cedo pra alimentar o saldo real (ao vivo) do fundo que
+    # garante o limite do cartão da obra, usado no financiamento abaixo.
+    invest_ws = sh.worksheet(INVEST_TAB)
+    invest_categorias, invest_total = load_investimentos(invest_ws)
+    invest_maria = load_carteira_maria(invest_ws)
+    invest_tickers = sorted({it["ticker"] for cat in invest_categorias + [invest_maria] for it in cat["itens"] if it["ticker"]})
+    invest_quotes = ensure_live_quotes(sh, sheets_api, invest_tickers)
+    invest_rent_ativa = compute_rentabilidade_ativa(invest_categorias)
+    fundo_obra_balance = get_fundo_obra_balance(invest_categorias)
+
     # Financiamento da obra e Fluxo de Caixa compartilham a mesma lógica de saque —
-    # é o que faz o saldo final de um bater com o do outro (double-check pedido).
-    fin = compute_financiamento_obra(months, cartao_obra_mensal, totals["receita_liquida"])
+    # é o que faz o saldo final de um bater com o do outro (double-check pedido). O saldo
+    # inicial do fundo (~R$144k) foi consumido ao longo de 2026; usa-se o saldo atual da
+    # aba Investimentos como ponto de partida da projeção, não mais um valor fixo no código.
+    fin_kwargs = {"investimento_total": fundo_obra_balance} if fundo_obra_balance is not None else {}
+    fin = compute_financiamento_obra(months, cartao_obra_mensal, totals["receita_liquida"], **fin_kwargs)
     saldo_mes = [sl + inv + sq for sl, inv, sq in zip(totals["saldo_liquido"], totals["investimentos"], fin["saque_mensal"])]
     raw_cum = []
     running = 0.0
@@ -179,18 +195,15 @@ def main():
 
     alerts = build_alerts(months, ref, totals, cartao_obra_mensal, obra_out, by_natureza, fin["saldo_investimento"][ref:])
 
-    # ---- Investimentos: posição atual (Qtd/PM$/R$, rentabilidade e % participação já
-    # pré-calculados na própria planilha) + cotação ao vivo via GOOGLEFINANCE para quem
-    # tem posição aberta hoje em ações + highlights de eficiência/concentração/liquidez.
-    invest_ws = sh.worksheet(INVEST_TAB)
-    invest_categorias, invest_total = load_investimentos(invest_ws)
-    invest_tickers = sorted({it["ticker"] for cat in invest_categorias for it in cat["itens"] if it["ticker"]})
-    invest_quotes = ensure_live_quotes(sh, sheets_api, invest_tickers)
-    invest_highlights = compute_highlights(invest_categorias, invest_total, invest_quotes)
+    # ---- Investimentos: highlights de eficiência/concentração/liquidez (dados já
+    # carregados no início de main(), inclusive para alimentar o financiamento da obra).
+    invest_highlights = compute_highlights(invest_categorias, invest_total, invest_quotes, invest_rent_ativa)
     investimentos_out = {
         "total": invest_total,
         "categorias": invest_categorias,
+        "maria": invest_maria,
         "cotacoes": invest_quotes,
+        "rent_ativa": invest_rent_ativa,
         "highlights": invest_highlights,
     }
 
@@ -244,7 +257,7 @@ def main():
     print(f"Saldo Acumulado final ({months[-1]}): {saldo_acumulado[-1]:.2f}")
     print(f"[double-check] Saldo Acumulado + Saldo Investimento (último mês): {(saldo_acumulado[-1] + fin['saldo_investimento'][-1]):.2f}")
     print(f"Alertas gerados: {len(alerts)}")
-    print(f"Investimentos: total atual {fmt_brl(invest_total['valor_atual'])} | rentabilidade acumulada {invest_total['rent_acum_pct']:.1f}% | highlights: {len(invest_highlights)}")
+    print(f"Investimentos: total atual {fmt_brl(invest_total['valor_atual'])} | rentabilidade posições ativas {invest_rent_ativa['rent_pct']} | Maria: {fmt_brl(invest_maria['valor_atual'])} | highlights: {len(invest_highlights)}")
 
 
 if __name__ == "__main__":
