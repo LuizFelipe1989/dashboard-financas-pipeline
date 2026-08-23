@@ -313,24 +313,26 @@ SALDO_DISPONIVEL_IMEDIATO = 25371.41
 INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76
 
 
-def compute_financiamento_obra(months, cartao_obra_mensal, receita_liquida, ref_month_index=REF_MONTH_INDEX,
+def compute_financiamento_obra(months, variavel_obra_mensal, ref_month_index=REF_MONTH_INDEX,
                                 saldo_disponivel=SALDO_DISPONIVEL_IMEDIATO, investimento_total=INVESTIMENTO_BLOQUEADO_TOTAL):
-    """Quando a parcela do cartão da obra supera o salário líquido do mês, a
-    diferença sai do investimento para o caixa nunca fechar negativo. Essa
-    mesma lógica alimenta tanto o gráfico de Financiamento da Obra quanto o
-    Fluxo de Caixa (que soma de volta o valor coberto pelo investimento, já
-    que essa parte não sai do bolso) — é o que faz os dois baterem entre si."""
+    """O fundo (Fundos de Investimento) paga o custo da obra inteiro — Pix + Cartão,
+    não só a parte do cartão que excede o salário — mês a mês, a partir do mês SEGUINTE
+    ao de referência: o saldo atual do fundo já é a posição depois dos pagamentos feitos
+    até o mês de referência (inclusive), então esse mês não é descontado de novo aqui.
+    Quando o fundo não dá mais conta do custo do mês, o que sobra é o que efetivamente
+    sai do caixa corrente — 'saque_mensal' é quanto o fundo cobriu (somado de volta no
+    Fluxo de Caixa, já que essa parte não sai do bolso); a diferença não coberta segue
+    contando como saída normal, sem precisar de um campo à parte."""
     n = len(months)
     saque_mensal = [0.0] * n
     saldo_investimento = [investimento_total] * n
     running = investimento_total
     for i in range(n):
-        if i >= ref_month_index:
-            parcela = abs(cartao_obra_mensal[i])
-            salario = receita_liquida[i]
-            saque = max(0.0, parcela - salario)
-            running -= saque
-            saque_mensal[i] = saque
+        if i > ref_month_index:
+            custo = abs(variavel_obra_mensal[i])
+            cobre = min(custo, max(running, 0.0))
+            running -= cobre
+            saque_mensal[i] = cobre
         saldo_investimento[i] = running
     return {"saque_mensal": saque_mensal, "saldo_investimento": saldo_investimento,
             "saldo_disponivel_imediato": saldo_disponivel, "investimento_bloqueado_total": investimento_total}

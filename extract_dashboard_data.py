@@ -102,7 +102,7 @@ def main():
     # inicial do fundo (~R$144k) foi consumido ao longo de 2026; usa-se o saldo atual da
     # aba Investimentos como ponto de partida da projeção, não mais um valor fixo no código.
     fin_kwargs = {"investimento_total": fundo_obra_balance} if fundo_obra_balance is not None else {}
-    fin = compute_financiamento_obra(months, cartao_obra_mensal, totals["receita_liquida"], **fin_kwargs)
+    fin = compute_financiamento_obra(months, totals["variavel_obra"], **fin_kwargs)
     saldo_mes = [sl + inv + sq for sl, inv, sq in zip(totals["saldo_liquido"], totals["investimentos"], fin["saque_mensal"])]
     raw_cum = []
     running = 0.0

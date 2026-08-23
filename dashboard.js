@@ -292,7 +292,7 @@
     }
   })();
 
-  // ---------- Financiamento da obra: investimento cobrindo o gap parcela-salário ----------
+  // ---------- Financiamento da obra: fundo cobre o custo total da obra (Pix+Cartão) ----------
   (function () {
     const svg = document.getElementById('financiamento-chart');
     const f = data.financiamento_obra;
@@ -608,7 +608,7 @@
     <div><b>Mês de referência</b> para os indicadores mensais e distribuição de parcelas de cartão: ${monthShort(data.months[REF])}.</div>
     <div><b>Apto Saúde</b> devolvido em ago./26 — a partir de set./26 restou só o Cartão Crédito Casa, projetado mês a mês pelas parcelas pendentes em Despesas_Casa (aba própria); as demais linhas (aluguel/condomínio/Enel/internet) zeram. Informativo, paga a Gabi, não entra nas saídas.</div>
     <div><b>Cartão Obra</b> usa o valor mensal já projetado em Fluxo_Apto_Realizado (linha 55 — Cartão); a Margem Líquida da DRE Resumida separa esse custo (Custo Obra) por ter prazo pra terminar — a versão que inclui a obra continua na tabela de detalhamento.</div>
-    <div><b>Financiamento da obra</b>: quando a parcela do cartão da obra supera o salário líquido do mês, a diferença é retirada do investimento (${fmt0(data.financiamento_obra.investimento_bloqueado_total)} hoje) para o caixa nunca fechar negativo — projeção até ${monthShort(data.months[N - 1])}.</div>
+    <div><b>Financiamento da obra</b>: o fundo (${fmt0(data.financiamento_obra.investimento_bloqueado_total)} hoje) paga o custo total da obra — Pix + Cartão — a partir do mês seguinte ao de referência (o saldo atual já reflete os pagamentos feitos até aqui); quando o fundo esgota, o restante passa a sair do caixa corrente — projeção até ${monthShort(data.months[N - 1])}.</div>
     <div><b>Cartão pessoal</b> detalhado a partir de ${data.n_itens_cartao_pessoal} itens de Contas!Cartão Pessoal; ${data.n_itens_obra_cartao} itens marcados "Obra Apto" aparecem em Gastos por Tipo mas o valor mensal de obra usado na DRE vem de Fluxo_Apto_Realizado, não deste cadastro.</div>
     <div>Fonte: planilha Google Sheets FL_2024 — abas DRE_Mensal, Obra_Consolidado, Fluxo_Caixa, Gastos_Por_Tipo e Despesas_Casa. Regenerar com <code>daily_update.py</code>.</div>
   `;
