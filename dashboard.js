@@ -466,7 +466,6 @@
 
     const groupsEl = document.getElementById('invest-groups');
     inv.categorias.forEach((cat) => renderGroup(groupsEl, cat, false));
-    renderGroup(groupsEl, inv.maria, false);
 
     const highlights = document.getElementById('invest-highlights');
     if (!inv.highlights || inv.highlights.length === 0) {

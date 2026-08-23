@@ -1,10 +1,10 @@
 """Lê a aba Investimentos (posição atual já pré-calculada pela própria planilha nas
 colunas J/K/L=Qtd/PM$/R$ atuais, O/P=rentabilidade acumulada R$/%, Q=% participação),
-a Carteira da Maria (colunas AN:AT, seção separada) e mantém uma aba auxiliar
-Investimentos_Cotacoes com fórmulas GOOGLEFINANCE — o "conector" de cotação em tempo
-real pedido: a cada abertura/recálculo da planilha (e a cada rodada do pipeline, 1x/dia
-às 7h) o Google Sheets busca o preço atual de cada ação via GOOGLEFINANCE, e este módulo
-lê o valor já calculado de volta.
+inclusive a seção "Carteira Maria" (mesmo layout de colunas, mais abaixo na aba) e
+mantém uma aba auxiliar Investimentos_Cotacoes com fórmulas GOOGLEFINANCE — o
+"conector" de cotação em tempo real pedido: a cada abertura/recálculo da planilha (e a
+cada rodada do pipeline, 1x/dia às 7h) o Google Sheets busca o preço atual de cada ação
+via GOOGLEFINANCE, e este módulo lê o valor já calculado de volta.
 
 Rentabilidade acumulada (colunas O/P) só é comparável quando a linha tinha posição no
 início do período E ainda tem posição hoje — uma linha liquidada em 2026 (ex: Renda Fixa,
@@ -13,7 +13,9 @@ mas é só o resgate integral, não rentabilidade negativa. O mesmo vale ao cont
 uma linha que começou em zero (ex: Fundos de Investimento, dinheiro novo) — mostraria um
 "+100%" artificial. Por isso o headline de rentabilidade só soma linhas com posição tanto
 na base original quanto hoje; as demais aparecem marcadas como liquidadas/novas na tabela,
-sem % de rentabilidade."""
+sem % de rentabilidade. A seção "Carteira Maria" tem esse mesmo problema nas colunas O/P
+(fórmula quebrada mostrando -100% mesmo com posição praticamente estável) — por isso a
+rentabilidade dela é recalculada direto de valor atual vs. original, não lida do O/P."""
 import re
 
 from finlib import get_clients, br_to_float, fmt_brl
@@ -25,28 +27,17 @@ LIVE_TAB = "Investimentos_Cotacoes"
 # 0-indexado a partir de get_all_values(). Categoria = linha de subtotal (fórmula SUM
 # sobre os filhos). Colunas: B=nome(1), F=R$ original/baseline(5), J=Qtd atual(9),
 # K=PM$ atual(10), L=R$ atual(11), O=Rent Acum R$(14), P=Rent Acum %(15), Q=% Part(16).
+# "Carteira Maria" usa o mesmo layout, só que numa seção própria mais abaixo, com seu
+# próprio subtotal (% Part relativo ao total dela, não ao do portfólio principal).
 STRUCTURE = [
     ("Renda Fixa", 1, [2, 3, 4]),
     ("Fundos de Investimento", 5, [6]),
     ("Previdência Privada", 7, [8, 9]),
     ("Ações Nacionais", 10, [11, 12, 13, 14, 15, 16]),
     ("Ações Int. + Cryptos", 17, [18]),
+    ("Carteira Maria", 24, [25, 26, 27, 28]),
 ]
 TOTAL_ROW = 19
-
-# Carteira da Maria: seção à parte (colunas AN:AT = índices 39:46), mesma aba.
-# Cabeçalho da planilha vem deslocado da fórmula real — confirmado lendo as fórmulas:
-# AO=Qtd compra, AP=PM$ compra, AQ=R$ compra(=AP*AO), AR=Qtd atual, AS=PM$ atual,
-# AT=R$ atual(=AS*AR).
-MARIA_COL_NOME = 39
-MARIA_COL_QTD_COMPRA = 40
-MARIA_COL_PM_COMPRA = 41
-MARIA_COL_QTD_ATUAL = 43
-MARIA_COL_PM_ATUAL = 44
-MARIA_COL_VALOR_ATUAL = 45
-MARIA_FIRST_ROW = 1
-MARIA_LAST_ROW = 7
-MARIA_TOTAL_ROW = 9
 
 TICKER_RE = re.compile(r"([A-Z]{4}\d{1,2}|CMIG4)F?\b")
 
@@ -79,6 +70,17 @@ def _parse_row(values, row_idx):
     }
 
 
+def _fix_direct_rentabilidade(row):
+    """Recalcula rent_acum direto de valor atual vs. original — usado só pra 'Carteira
+    Maria', cujas colunas O/P vêm com fórmula quebrada (mostram -100% mesmo com posição
+    quase estável)."""
+    rent_rs = row["valor_atual"] - row["valor_original"]
+    row["rent_acum_rs"] = rent_rs
+    row["rent_acum_pct"] = (rent_rs / row["valor_original"] * 100) if row["valor_original"] else 0.0
+    row["liquidado"] = row["valor_original"] > 0 and row["valor_atual"] == 0
+    row["started_zero"] = row["valor_original"] == 0 and row["valor_atual"] > 0
+
+
 def load_investimentos(ws):
     values = ws.get_all_values()
     categorias = []
@@ -87,6 +89,10 @@ def load_investimentos(ws):
         cat["itens"] = [_parse_row(values, r) for r in child_rows]
         for it in cat["itens"]:
             it["ticker"] = extract_ticker(it["nome"])
+            if nome == "Carteira Maria":
+                _fix_direct_rentabilidade(it)
+        if nome == "Carteira Maria":
+            _fix_direct_rentabilidade(cat)
         categorias.append(cat)
     total = _parse_row(values, TOTAL_ROW)
     return categorias, total
@@ -100,54 +106,6 @@ def get_fundo_obra_balance(categorias):
     vez de um valor fixo desatualizado no código."""
     cat = next((c for c in categorias if c["nome"] == "Fundos de Investimento"), None)
     return cat["valor_atual"] if cat else None
-
-
-def load_carteira_maria(ws):
-    values = ws.get_all_values()
-    def cell(row_idx, col):
-        row = values[row_idx] if row_idx < len(values) else []
-        return row[col] if col < len(row) else ""
-
-    itens = []
-    for r in range(MARIA_FIRST_ROW, MARIA_LAST_ROW + 1):
-        nome = cell(r, MARIA_COL_NOME).strip()
-        if not nome:
-            continue
-        qtd_compra = br_to_float(cell(r, MARIA_COL_QTD_COMPRA))
-        pm_compra = br_to_float(cell(r, MARIA_COL_PM_COMPRA))
-        qtd_atual = br_to_float(cell(r, MARIA_COL_QTD_ATUAL))
-        pm_atual = br_to_float(cell(r, MARIA_COL_PM_ATUAL))
-        valor_atual = br_to_float(cell(r, MARIA_COL_VALOR_ATUAL))
-        # custo de aquisição das cotas ainda em carteira, ao preço médio de compra —
-        # só assim dá pra medir ganho/perda de quem ainda está posicionado.
-        custo_atual = qtd_atual * pm_compra
-        rent_rs = (valor_atual - custo_atual) if qtd_atual > 0 else 0.0
-        rent_pct = (rent_rs / custo_atual * 100) if custo_atual else 0.0
-        itens.append({
-            "nome": nome, "ticker": extract_ticker(nome),
-            "qtd": qtd_atual, "pm": pm_compra,
-            "valor_original": qtd_compra * pm_compra, "valor_atual": valor_atual,
-            "rent_acum_rs": rent_rs, "rent_acum_pct": rent_pct, "pct_part": 0.0,
-            "liquidado": qtd_compra > 0 and qtd_atual == 0,
-            "started_zero": False,
-        })
-
-    total_valor = sum(it["valor_atual"] for it in itens) or 1.0
-    for it in itens:
-        it["pct_part"] = it["valor_atual"] / total_valor * 100
-
-    total = {
-        "nome": "Carteira da Maria",
-        "valor_original": sum(it["valor_original"] for it in itens),
-        "valor_atual": sum(it["valor_atual"] for it in itens),
-        "rent_acum_rs": sum(it["rent_acum_rs"] for it in itens),
-        "pct_part": 100.0,
-        "itens": itens,
-        "liquidado": False, "started_zero": False,
-    }
-    total["rent_acum_pct"] = (total["rent_acum_rs"] / (total["valor_atual"] - total["rent_acum_rs"]) * 100) \
-        if (total["valor_atual"] - total["rent_acum_rs"]) else 0.0
-    return total
 
 
 def ensure_live_quotes(sh, sheets_api, tickers):
@@ -182,8 +140,12 @@ def ensure_live_quotes(sh, sheets_api, tickers):
 def compute_rentabilidade_ativa(categorias):
     """Rentabilidade acumulada só sobre linhas comparáveis (posição na base original E
     hoje) — evita o -100% artificial de linhas liquidadas e o +100% artificial de linhas
-    que começaram em zero (dinheiro novo)."""
-    comparaveis = [c for c in categorias if not c["liquidado"] and not c["started_zero"] and c["valor_atual"] > 0]
+    que começaram em zero (dinheiro novo). Carteira Maria fica de fora — é uma carteira
+    à parte, não deveria se misturar no headline da carteira do Luiz."""
+    comparaveis = [
+        c for c in categorias
+        if c["nome"] != "Carteira Maria" and not c["liquidado"] and not c["started_zero"] and c["valor_atual"] > 0
+    ]
     rent_rs = sum(c["rent_acum_rs"] for c in comparaveis)
     valor = sum(c["valor_atual"] for c in comparaveis)
     custo = valor - rent_rs
@@ -199,13 +161,15 @@ def compute_highlights(categorias, total, quotes, rent_ativa):
 
     total_atual = total["valor_atual"] or 1.0
     for cat in categorias:
+        if cat["nome"] == "Carteira Maria":
+            continue  # % Part dela é relativa à própria carteira, não à do Luiz
         if cat["pct_part"] >= 60:
             highlights.append({
                 "icon": "⚠️",
                 "text": f"{cat['nome']} concentra {cat['pct_part']:.1f}% da carteira — pouca diversificação entre classes de ativo.",
             })
 
-    liquidadas = [c["nome"] for c in categorias if c["liquidado"]]
+    liquidadas = [c["nome"] for c in categorias if c["liquidado"] and c["nome"] != "Carteira Maria"]
     if liquidadas:
         highlights.append({
             "icon": "ℹ️",
@@ -249,9 +213,8 @@ def main():
     sh, sheets_api = get_clients()
     ws = sh.worksheet(SRC_TAB)
     categorias, total = load_investimentos(ws)
-    maria = load_carteira_maria(ws)
 
-    tickers = sorted({it["ticker"] for cat in categorias + [maria] for it in cat["itens"] if it["ticker"]})
+    tickers = sorted({it["ticker"] for cat in categorias for it in cat["itens"] if it["ticker"]})
     quotes = ensure_live_quotes(sh, sheets_api, tickers)
     rent_ativa = compute_rentabilidade_ativa(categorias)
     highlights = compute_highlights(categorias, total, quotes, rent_ativa)
@@ -260,8 +223,7 @@ def main():
     for cat in categorias:
         tag = " [LIQUIDADO]" if cat["liquidado"] else (" [NOVO]" if cat["started_zero"] else "")
         print(f"  {cat['nome']}: {fmt_brl(cat['valor_atual'])} ({cat['pct_part']:.1f}%){tag}")
-    print(f"Rentabilidade posições ativas: {rent_ativa}")
-    print(f"Carteira da Maria: total {fmt_brl(maria['valor_atual'])}, {len(maria['itens'])} itens")
+    print(f"Rentabilidade posições ativas (sem Carteira Maria): {rent_ativa}")
     print(f"Cotações ao vivo (GOOGLEFINANCE): {quotes}")
     print(f"Highlights gerados: {len(highlights)}")
     for h in highlights:
