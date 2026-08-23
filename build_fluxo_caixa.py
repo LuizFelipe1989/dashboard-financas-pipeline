@@ -1,7 +1,7 @@
 from finlib import (
     get_clients, fmt_brl, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, DESPESAS_CASA_TAB, REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals,
-    apply_despesas_casa_handover, compute_financiamento_obra, red_negative_rule,
+    apply_despesas_casa_handover, apply_investimentos_sign, compute_financiamento_obra, red_negative_rule,
 )
 
 OUT_TAB = "Fluxo_Caixa"
@@ -16,6 +16,7 @@ def main():
 
     months, proj_data = load_projecao(proj_ws)
     apply_despesas_casa_handover(months, proj_data, despesas_casa_ws)
+    apply_investimentos_sign(proj_data)
     n = len(months)
 
     card_items = load_card_items(contas_ws)

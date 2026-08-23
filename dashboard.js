@@ -372,7 +372,8 @@
         <td class="num">${fmt0(r.previsto)}</td>
         <td class="num">${fmt0(r.pago)}</td>
         <td class="num">${fmt1pct(pct)}</td>
-        <td class="num">${fmt0(r.pendente)}</td>
+        <td class="num">${fmt0(r.pendente_pix)}</td>
+        <td class="num">${fmt0(r.pendente_cartao)}</td>
         <td><div class="mini-bar">
           <div style="width:${r.pago / denom * 100}%; background: var(--good)"></div>
           <div style="width:${r.pendente / denom * 100}%; background: var(--warning)"></div>
@@ -391,6 +392,7 @@
       <td class="num">${fmt0(o.pago)}</td>
       <td class="num">${fmt1pct(obraPctPago)}</td>
       <td class="num">${fmt0(o.pendente)}</td>
+      <td class="num">${fmt0(o.futuro)}</td>
       <td><div class="mini-bar">
         <div style="width:${o.pago / totalDenom * 100}%; background: var(--good)"></div>
         <div style="width:${o.pendente / totalDenom * 100}%; background: var(--warning)"></div>
@@ -398,6 +400,68 @@
       </div></td>
     `;
     tbody.appendChild(totalTr);
+  })();
+
+  // ---------- Investimentos: posição atual, cotação ao vivo e highlights ----------
+  (function () {
+    const inv = data.investimentos;
+    if (!inv) return;
+    const t = inv.total;
+    const fmtShare = (v) => 'R$ ' + abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    document.getElementById('invest-sub').textContent = 'Posição atual — aba Investimentos';
+
+    const tiles = document.getElementById('invest-tiles');
+    [
+      ['Total Investido', fmt0(t.valor_atual)],
+      ['Rentabilidade Acumulada', moneySpan(t.rent_acum_rs)],
+      ['Rentabilidade Acumulada %', fmt1pct(t.rent_acum_pct)],
+    ].forEach(([label, value]) => {
+      const el = document.createElement('div');
+      el.className = 'stat-tile';
+      el.innerHTML = `<div class="label">${label}</div><div class="value">${value}</div>`;
+      tiles.appendChild(el);
+    });
+
+    const tbody = document.getElementById('invest-table-body');
+    inv.categorias.forEach((cat) => {
+      const catTr = document.createElement('tr');
+      catTr.className = 'row-subtotal';
+      catTr.innerHTML = `
+        <td>${cat.nome}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
+        <td class="num">${fmt0(cat.valor_atual)}</td>
+        <td class="num">${moneySpan(cat.rent_acum_rs)}</td>
+        <td class="num">${fmt1pct(cat.pct_part)}</td>
+      `;
+      tbody.appendChild(catTr);
+      cat.itens.forEach((it) => {
+        const cotacao = it.ticker ? inv.cotacoes[it.ticker] : null;
+        const tr = document.createElement('tr');
+        tr.className = 'row-line';
+        tr.innerHTML = `
+          <td>${it.nome}${it.ticker ? ` <span style="color:var(--ink-muted)">(${it.ticker})</span>` : ''}</td>
+          <td class="num">${it.qtd ? it.qtd : '—'}</td>
+          <td class="num">${it.pm ? fmtShare(it.pm) : '—'}</td>
+          <td class="num">${cotacao ? fmtShare(cotacao) : '—'}</td>
+          <td class="num">${fmt0(it.valor_atual)}</td>
+          <td class="num">${moneySpan(it.rent_acum_rs)}</td>
+          <td class="num">${fmt1pct(it.pct_part)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+
+    const highlights = document.getElementById('invest-highlights');
+    if (!inv.highlights || inv.highlights.length === 0) {
+      highlights.innerHTML = '<div class="alert-empty">Sem observações hoje.</div>';
+    } else {
+      inv.highlights.forEach((h) => {
+        const el = document.createElement('div');
+        el.className = 'alert-item';
+        el.innerHTML = `<span class="icon">${h.icon || 'ℹ️'}</span><span>${h.text}</span>`;
+        highlights.appendChild(el);
+      });
+    }
   })();
 
   // ---------- Gastos por Tipo: Fixo Mensal / Parcelado / Discricionário, com subtotais ----------

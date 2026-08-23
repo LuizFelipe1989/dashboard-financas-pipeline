@@ -292,6 +292,14 @@ def apply_despesas_casa_handover(months, data, despesas_casa_ws, from_label=SET_
     return data
 
 
+def apply_investimentos_sign(data):
+    """A linha 'Investimentos' da Projeção é sempre um aporte (aplicação/criação de
+    fundo) — trata como saída da DRE independente do sinal lançado na planilha."""
+    if "Investimentos" in data:
+        data["Investimentos"] = [-abs(v) for v in data["Investimentos"]]
+    return data
+
+
 # Extrato BB (conta 3494-0 / 48516-0), posição em 20/08/2026 — atualize manualmente
 # a cada novo extrato até termos ingestão automática.
 SALDO_DISPONIVEL_IMEDIATO = 25371.41

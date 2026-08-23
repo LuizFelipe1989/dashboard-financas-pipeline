@@ -2,7 +2,7 @@ from finlib import (
     get_clients, fmt_brl, GROUPS, LABEL_OVERRIDES, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB,
     DESPESAS_CASA_TAB, REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals,
-    apply_despesas_casa_handover, red_negative_rule,
+    apply_despesas_casa_handover, apply_investimentos_sign, red_negative_rule,
 )
 
 OUT_TAB = "DRE_Mensal"
@@ -81,6 +81,7 @@ def main():
     despesas_casa_ws = sh.worksheet(DESPESAS_CASA_TAB)
     months, data = load_projecao(src_ws)
     apply_despesas_casa_handover(months, data, despesas_casa_ws)
+    apply_investimentos_sign(data)
     card_items = load_card_items(contas_ws)
     ctipo = cartao_por_tipo(card_items, len(months))
     cartao_obra_mensal = load_cartao_obra_mensal(apto_ws, months)

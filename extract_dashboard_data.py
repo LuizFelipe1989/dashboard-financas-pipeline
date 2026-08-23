@@ -4,23 +4,33 @@ from collections import OrderedDict
 from finlib import (
     get_clients, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, DESPESAS_CASA_TAB, REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals, fmt_brl,
-    apply_despesas_casa_handover, compute_financiamento_obra,
+    apply_despesas_casa_handover, apply_investimentos_sign, compute_financiamento_obra,
 )
 from build_dre import build_rows
 from build_obra import load_items_and_colors, payment_summary, SRC_TAB as OBRA_TAB
 from build_gastos_tipo import group_by_natureza, NATUREZA_ORDEM
+from build_investimentos import load_investimentos, ensure_live_quotes, compute_highlights, SRC_TAB as INVEST_TAB
 
 OUT_PATH = "dashboard_data.json"
 
 
 def dre_detalhe_full(months, data, ctipo, cartao_obra_mensal, totals):
     """Sectioned line-item list (kind HEADER/LINE/SUBTOTAL) across ALL months, reusing
-    build_dre.build_rows() so the dashboard's DRE detail table is exactly the DRE_Mensal
+    build_dre.build_rows() so the dashboard's DRE detail table matches the DRE_Mensal
     sheet's own structure. `grupo` (raw group key) is kept for internal filtering (e.g.
-    Composição das Despesas) but is not meant to be rendered as its own column."""
+    Composição das Despesas) but is not meant to be rendered as its own column.
+
+    Moradia Saúde (pago pela Gabi) fica de fora da tabela do dashboard — é puramente
+    informativo, não entra na margem, e só teria as próprias parcelas do Cartão Crédito
+    Casa; segue disponível na aba DRE_Mensal (build_rows() não muda) para quem quiser
+    o detalhe completo."""
     rows = build_rows(months, data, ctipo, cartao_obra_mensal, totals)
-    return [{"kind": kind, "label": label, "grupo": grp, "vals": list(vals) if vals is not None else None}
-            for kind, label, vals, _classif, grp in rows]
+    out = []
+    for kind, label, vals, _classif, grp in rows:
+        if grp == "MORADIA_GABI" or (kind == "HEADER" and "MORADIA SAÚDE" in label):
+            continue
+        out.append({"kind": kind, "label": label, "grupo": grp, "vals": list(vals) if vals is not None else None})
+    return out
 
 
 def build_alerts(months, ref, totals, cartao_obra_mensal, obra, gastos_natureza, saldo_investimento_series):
@@ -66,6 +76,7 @@ def main():
     despesas_casa_ws = sh.worksheet(DESPESAS_CASA_TAB)
     months, proj_data = load_projecao(proj_ws)
     apply_despesas_casa_handover(months, proj_data, despesas_casa_ws)
+    apply_investimentos_sign(proj_data)
     n = len(months)
     ref = REF_MONTH_INDEX
 
@@ -135,11 +146,22 @@ def main():
     by_class = OrderedDict()
     for it in items:
         c = it["classificacao"] or "(sem classificação)"
-        acc = by_class.setdefault(c, {"previsto": 0.0, "pago": 0.0, "pendente": 0.0, "futuro": 0.0})
+        acc = by_class.setdefault(c, {
+            "previsto": 0.0, "pago": 0.0, "pendente": 0.0, "futuro": 0.0,
+            "pendente_pix": 0.0, "pendente_cartao": 0.0,
+        })
         acc["previsto"] += it["previsto"]
         acc["pago"] += it["pago"]
         acc["pendente"] += it["pendente"]
         acc["futuro"] += it["futuro"]
+        # Pix só aparece como "pendente" (rosa); Cartão só aparece como "futuro" (parcela
+        # ainda não lançada) — "Pendente Cartão" reaproveita esse bucket como o pendente
+        # em aberto do cartão (gasto projetado, ainda não cobrado).
+        modalidade = it["modalidade"].strip().lower()
+        if modalidade == "pix":
+            acc["pendente_pix"] += it["pendente"]
+        elif modalidade == "cartão":
+            acc["pendente_cartao"] += it["futuro"]
     class_rollup = [{"classificacao": c, **acc} for c, acc in sorted(by_class.items(), key=lambda kv: -kv[1]["previsto"])]
 
     pagamentos = payment_summary(items)
@@ -156,6 +178,21 @@ def main():
     jul27_idx = next((i for i, m in enumerate(months) if m.startswith("jul./27")), n - 1)
 
     alerts = build_alerts(months, ref, totals, cartao_obra_mensal, obra_out, by_natureza, fin["saldo_investimento"][ref:])
+
+    # ---- Investimentos: posição atual (Qtd/PM$/R$, rentabilidade e % participação já
+    # pré-calculados na própria planilha) + cotação ao vivo via GOOGLEFINANCE para quem
+    # tem posição aberta hoje em ações + highlights de eficiência/concentração/liquidez.
+    invest_ws = sh.worksheet(INVEST_TAB)
+    invest_categorias, invest_total = load_investimentos(invest_ws)
+    invest_tickers = sorted({it["ticker"] for cat in invest_categorias for it in cat["itens"] if it["ticker"]})
+    invest_quotes = ensure_live_quotes(sh, sheets_api, invest_tickers)
+    invest_highlights = compute_highlights(invest_categorias, invest_total, invest_quotes)
+    investimentos_out = {
+        "total": invest_total,
+        "categorias": invest_categorias,
+        "cotacoes": invest_quotes,
+        "highlights": invest_highlights,
+    }
 
     personal_n = len([it for it in card_items if it["tipo"] != "Obra Apto"])
     obra_card_n = len([it for it in card_items if it["tipo"] == "Obra Apto"])
@@ -189,6 +226,7 @@ def main():
         "n_itens_cartao_pessoal": personal_n,
         "n_itens_obra_cartao": obra_card_n,
         "alerts": alerts,
+        "investimentos": investimentos_out,
     }
 
     with open(OUT_PATH, "w") as f:
@@ -206,6 +244,7 @@ def main():
     print(f"Saldo Acumulado final ({months[-1]}): {saldo_acumulado[-1]:.2f}")
     print(f"[double-check] Saldo Acumulado + Saldo Investimento (último mês): {(saldo_acumulado[-1] + fin['saldo_investimento'][-1]):.2f}")
     print(f"Alertas gerados: {len(alerts)}")
+    print(f"Investimentos: total atual {fmt_brl(invest_total['valor_atual'])} | rentabilidade acumulada {invest_total['rent_acum_pct']:.1f}% | highlights: {len(invest_highlights)}")
 
 
 if __name__ == "__main__":

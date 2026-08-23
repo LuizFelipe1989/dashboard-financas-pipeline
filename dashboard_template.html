@@ -208,6 +208,10 @@ details.detail-toggle .wide-scroll, details.detail-toggle > div { margin-top: 12
 /* generic sectioned table — DRE (multi-mês) reaproveitável por qualquer detail-toggle */
 table.detail-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 table.detail-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; padding: 0 10px 6px 0; border-bottom: 1px solid var(--gridline); white-space: nowrap; }
+.dre-table-scroll { max-height: 480px; overflow-y: auto; }
+.dre-table-scroll table.detail-table thead th { position: sticky; top: 0; background: var(--surface); padding-top: 8px; z-index: 2; }
+.dre-table-scroll table.detail-table th:first-child, .dre-table-scroll table.detail-table td:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; }
+.dre-table-scroll table.detail-table thead th:first-child { z-index: 3; }
 table.detail-table th.num, table.detail-table td.num { text-align: right; font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; }
 table.detail-table td { padding: 5px 10px 5px 0; border-bottom: 1px solid var(--gridline); white-space: nowrap; }
 table.detail-table tr.row-header td { font-weight: 600; color: var(--ink-secondary); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; padding-top: 12px; border-bottom-color: transparent; }
@@ -281,7 +285,7 @@ table.detail-table tr.row-line td:first-child { padding-left: 10px; color: var(-
     <div class="dre-kpis" id="dre-kpis"></div>
     <details class="detail-toggle">
       <summary>Ver detalhamento mês a mês (jul./26 – ago./27)</summary>
-      <div class="wide-scroll">
+      <div class="wide-scroll dre-table-scroll">
         <table class="detail-table">
           <thead id="dre-detail-head"></thead>
           <tbody id="dre-detail-body"></tbody>
@@ -321,19 +325,42 @@ table.detail-table tr.row-line td:first-child { padding-left: 10px; color: var(-
     <div class="obra-meter" id="obra-meter"></div>
     <div class="obra-legend">
       <span class="item"><span class="swatch" style="background:var(--good)"></span>Pago</span>
-      <span class="item"><span class="swatch" style="background:var(--warning)"></span>Pendente</span>
-      <span class="item"><span class="swatch" style="background:var(--future)"></span>Futuro</span>
+      <span class="item"><span class="swatch" style="background:var(--warning)"></span>Pendente Pix</span>
+      <span class="item"><span class="swatch" style="background:var(--future)"></span>Pendente Cartão (futuro)</span>
     </div>
     <details class="detail-toggle">
       <summary>Ver detalhamento por classificação</summary>
       <div class="wide-scroll">
         <table class="obra-table">
-          <thead><tr><th>Classificação</th><th class="num">Previsto</th><th class="num">Pago</th><th class="num">% Pago</th><th class="num">Pendente</th><th>Status</th></tr></thead>
+          <thead><tr><th>Classificação</th><th class="num">Previsto</th><th class="num">Pago</th><th class="num">% Pago</th><th class="num">Pendente Pix</th><th class="num">Pendente Cartão</th><th>Status</th></tr></thead>
           <tbody id="obra-table-body"></tbody>
         </table>
       </div>
     </details>
   </section>
+
+  <div class="eyebrow">Investimentos</div>
+  <div class="grid-2">
+    <section class="panel">
+      <h2>Carteira de Investimentos</h2>
+      <div class="panel-sub" id="invest-sub">—</div>
+      <div class="stat-tiles" id="invest-tiles"></div>
+      <details class="detail-toggle" open>
+        <summary>Ver por categoria e ativo</summary>
+        <div class="wide-scroll">
+          <table class="detail-table">
+            <thead><tr><th>Categoria / Ativo</th><th class="num">Qtd</th><th class="num">PM$</th><th class="num">Cotação</th><th class="num">Valor Atual</th><th class="num">Rent. Acum.</th><th class="num">% Part.</th></tr></thead>
+            <tbody id="invest-table-body"></tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+    <section class="panel">
+      <h2>Highlights &amp; Análises</h2>
+      <div class="panel-sub">Concentração, liquidez e eficiência da carteira</div>
+      <div class="alert-list" id="invest-highlights"></div>
+    </section>
+  </div>
 
   <div class="grid-2">
     <section class="panel">
