@@ -185,40 +185,43 @@ table.obra-table th { text-align: left; font-size: 10.5px; text-transform: upper
 table.obra-table th.num, table.obra-table td.num { text-align: right; font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; }
 table.obra-table td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--gridline); vertical-align: middle; }
 table.obra-table tr:last-child td { border-bottom: none; }
+table.obra-table tr.row-total td { font-weight: 600; border-top: 1px solid var(--ink-muted); border-bottom: none; padding-top: 10px; }
 .mini-bar { display: flex; height: 8px; width: 100px; border-radius: 4px; overflow: hidden; background: var(--neutral-track); }
 
 /* DRE resumida */
-.dre-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 4px; }
+.dre-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 4px; }
 .dre-kpi { display: flex; flex-direction: column; gap: 3px; padding: 11px 12px; border-radius: 10px; background: var(--page); }
 .dre-kpi .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; }
 .dre-kpi .value { font-family: 'Plex Mono Dash', monospace; font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .dre-kpi .pct { font-size: 11px; color: var(--ink-secondary); font-family: 'Plex Mono Dash', monospace; }
-details.dre-detail { margin-top: 14px; }
-details.dre-detail summary { cursor: pointer; font-size: 12.5px; color: var(--accent); font-weight: 500; list-style: none; display: inline-flex; align-items: center; gap: 5px; }
-details.dre-detail summary::-webkit-details-marker { display: none; }
-details.dre-detail summary::before { content: '▸'; font-size: 10px; transition: transform 0.15s; }
-details.dre-detail[open] summary::before { transform: rotate(90deg); }
-details.dre-detail table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
-details.dre-detail th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; padding: 0 8px 6px 0; border-bottom: 1px solid var(--gridline); }
-details.dre-detail th.num, details.dre-detail td.num { text-align: right; font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; }
-details.dre-detail td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--gridline); }
-details.dre-detail tr.row-header td { font-weight: 600; color: var(--ink-secondary); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; padding-top: 12px; border-bottom-color: transparent; }
-details.dre-detail tr.row-header:first-child td { padding-top: 4px; }
-details.dre-detail tr.row-subtotal td { font-weight: 600; border-bottom: 1px solid var(--ink-muted); }
-details.dre-detail tr.row-line td:first-child { padding-left: 10px; color: var(--ink-secondary); }
+.dre-kpi.is-obra { background: var(--warning-soft); }
+.dre-kpi.is-obra .label { color: var(--warning); }
 
-details.obra-detail { margin-top: 6px; }
-details.obra-detail summary { cursor: pointer; font-size: 12.5px; color: var(--accent); font-weight: 500; list-style: none; display: inline-flex; align-items: center; gap: 5px; }
-details.obra-detail summary::-webkit-details-marker { display: none; }
-details.obra-detail summary::before { content: '▸'; font-size: 10px; transition: transform 0.15s; }
-details.obra-detail[open] summary::before { transform: rotate(90deg); }
-details.obra-detail .wide-scroll { margin-top: 12px; }
+/* toggle chevron shared by every collapsible detail section */
+details.detail-toggle { margin-top: 14px; }
+details.detail-toggle summary { cursor: pointer; font-size: 12.5px; color: var(--accent); font-weight: 500; list-style: none; display: inline-flex; align-items: center; gap: 5px; }
+details.detail-toggle summary::-webkit-details-marker { display: none; }
+details.detail-toggle summary::before { content: '▸'; font-size: 10px; transition: transform 0.15s; }
+details.detail-toggle[open] summary::before { transform: rotate(90deg); }
+details.detail-toggle .wide-scroll, details.detail-toggle > div { margin-top: 12px; }
+
+/* generic sectioned table — DRE (multi-mês) reaproveitável por qualquer detail-toggle */
+table.detail-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.detail-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; padding: 0 10px 6px 0; border-bottom: 1px solid var(--gridline); white-space: nowrap; }
+table.detail-table th.num, table.detail-table td.num { text-align: right; font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; }
+table.detail-table td { padding: 5px 10px 5px 0; border-bottom: 1px solid var(--gridline); white-space: nowrap; }
+table.detail-table tr.row-header td { font-weight: 600; color: var(--ink-secondary); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; padding-top: 12px; border-bottom-color: transparent; }
+table.detail-table tr.row-header:first-child td { padding-top: 4px; }
+table.detail-table tr.row-subtotal td { font-weight: 600; border-bottom: 1px solid var(--ink-muted); }
+table.detail-table tr.row-line td:first-child { padding-left: 10px; color: var(--ink-secondary); }
 
 /* compromisso da obra + financiamento */
 .stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
 .stat-tile { padding: 11px 12px; border-radius: 10px; background: var(--page); display: flex; flex-direction: column; gap: 3px; }
 .stat-tile .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; }
 .stat-tile .value { font-family: 'Plex Mono Dash', monospace; font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.big-total { font-family: 'Plex Mono Dash', monospace; font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; margin: 2px 0 4px; }
 
 /* alertas */
 .alert-list { display: flex; flex-direction: column; gap: 10px; }
@@ -276,11 +279,11 @@ details.obra-detail .wide-scroll { margin-top: 12px; }
     <h2>DRE Resumida</h2>
     <div class="panel-sub" id="dre-sub">—</div>
     <div class="dre-kpis" id="dre-kpis"></div>
-    <details class="dre-detail">
-      <summary>Ver detalhamento linha a linha</summary>
+    <details class="detail-toggle">
+      <summary>Ver detalhamento mês a mês (jul./26 – ago./27)</summary>
       <div class="wide-scroll">
-        <table>
-          <thead><tr><th>Linha</th><th class="num">Valor</th><th class="num">% peso</th></tr></thead>
+        <table class="detail-table">
+          <thead id="dre-detail-head"></thead>
           <tbody id="dre-detail-body"></tbody>
         </table>
       </div>
@@ -292,6 +295,10 @@ details.obra-detail .wide-scroll { margin-top: 12px; }
     <section class="panel">
       <h2>Cartão Obra — Parcelas Futuras</h2>
       <div class="panel-sub" id="cartao-obra-sub">—</div>
+      <div class="chart-legend">
+        <span class="item"><span class="swatch" style="background:var(--critical)"></span>Parcela mensal</span>
+        <span class="item"><span class="line-swatch" style="background:var(--ink-muted)"></span>Entradas médias</span>
+      </div>
       <div class="chart-wrap wide-scroll">
         <svg id="cartao-obra-chart" width="100%" viewBox="0 0 340 220" preserveAspectRatio="xMidYMid meet"></svg>
         <div class="tooltip" id="cartao-obra-tooltip"></div>
@@ -317,7 +324,7 @@ details.obra-detail .wide-scroll { margin-top: 12px; }
       <span class="item"><span class="swatch" style="background:var(--warning)"></span>Pendente</span>
       <span class="item"><span class="swatch" style="background:var(--future)"></span>Futuro</span>
     </div>
-    <details class="obra-detail">
+    <details class="detail-toggle">
       <summary>Ver detalhamento por classificação</summary>
       <div class="wide-scroll">
         <table class="obra-table">
@@ -332,13 +339,22 @@ details.obra-detail .wide-scroll { margin-top: 12px; }
     <section class="panel">
       <h2>Gastos por Tipo</h2>
       <div class="panel-sub" id="tipo-sub">—</div>
-      <div id="natureza-groups"></div>
+      <div class="big-total" id="tipo-total">—</div>
+      <div class="stat-tiles" id="tipo-summary-tiles"></div>
+      <details class="detail-toggle">
+        <summary>Ver detalhamento por tipo</summary>
+        <div id="natureza-groups"></div>
+      </details>
     </section>
 
     <section class="panel">
       <h2>Composição das Despesas do Mês</h2>
       <div class="panel-sub" id="composicao-sub">—</div>
-      <div class="plain-list" id="composicao-list"></div>
+      <div class="big-total" id="composicao-total">—</div>
+      <details class="detail-toggle">
+        <summary>Ver detalhamento linha a linha</summary>
+        <div class="plain-list" id="composicao-list"></div>
+      </details>
     </section>
   </div>
 

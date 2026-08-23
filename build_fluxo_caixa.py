@@ -1,7 +1,7 @@
 from finlib import (
-    get_clients, fmt_brl, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, REF_MONTH_INDEX,
+    get_clients, fmt_brl, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, DESPESAS_CASA_TAB, REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals,
-    compute_financiamento_obra, red_negative_rule,
+    apply_despesas_casa_handover, compute_financiamento_obra, red_negative_rule,
 )
 
 OUT_TAB = "Fluxo_Caixa"
@@ -12,8 +12,10 @@ def main():
     contas_ws = sh.worksheet(CONTAS_TAB)
     proj_ws = sh.worksheet(PROJ_TAB)
     apto_ws = sh.worksheet(FLUXO_APTO_TAB)
+    despesas_casa_ws = sh.worksheet(DESPESAS_CASA_TAB)
 
     months, proj_data = load_projecao(proj_ws)
+    apply_despesas_casa_handover(months, proj_data, despesas_casa_ws)
     n = len(months)
 
     card_items = load_card_items(contas_ws)
@@ -49,12 +51,10 @@ def main():
         row_kinds.append("SECTION")
 
     add_section("(+) ENTRADAS")
-    add_row("LINE", "Receita Líquida (Salário)", totals["receita_liquida"])
-    add_row("LINE", "Outras Receitas / Aportes (Gabriela)", totals["outras_receitas"])
-    add_row("SUBTOTAL", "Total Entradas", totals["entradas"])
+    add_row("SUBTOTAL", "Total Entradas (Receita Líquida)", totals["entradas"])
 
     add_section("MORADIA SAÚDE — PAGO POR GABI (INFORMATIVO, NÃO ENTRA NAS SAÍDAS)")
-    add_row("REF", "Aluguel + Condomínio + Enel + Internet + Cartão Casa", totals["moradia_gabi"])
+    add_row("REF", "Apto devolvido em ago./26 — resta só Cartão Crédito Casa (parcelas pendentes, Despesas_Casa)", totals["moradia_gabi"])
 
     add_section("(-) SAÍDAS — CUSTOS FIXOS")
     add_row("SUBTOTAL", "Subtotal Custos Fixos", totals["fixo"])

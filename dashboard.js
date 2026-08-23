@@ -46,7 +46,7 @@
   const kpiRow = document.getElementById('kpi-row');
   kpiRow.appendChild(kpiTile({
     label: 'Entradas do mês', value: fmt0(receitaMes),
-    foot: 'Salário líquido + aportes',
+    foot: 'Salário líquido',
   }));
   kpiRow.appendChild(kpiTile({
     label: 'Saídas do mês', value: moneySpan(despesasMes),
@@ -126,10 +126,6 @@
       const r = (i === N - 1) ? 4.5 : 2.2;
       svg.appendChild(el('circle', { cx: x(i), cy: y(saldoAcum[i]), r, class: 'saldo-dot' }));
     }
-    const finalLabel = el('text', { x: x(N - 1) - 6, y: y(saldoAcum[N - 1]) - 10, 'text-anchor': 'end', fill: saldoAcum[N - 1] < 0 ? 'var(--critical)' : 'var(--accent)', 'font-weight': 600, 'font-size': 11 });
-    finalLabel.textContent = fmt0(saldoAcum[N - 1]);
-    svg.appendChild(finalLabel);
-
     const tooltip = document.getElementById('fluxo-tooltip');
     const wrap = svg.parentElement;
     groups.forEach(({ hit, i }) => {
@@ -156,18 +152,19 @@
   (function () {
     const r = data.dre_resumo;
     document.getElementById('dre-sub').textContent =
-      monthShort(data.months[REF]) + ' — margem líquida ' + fmt1pct(r.margem_liquida_pct) + ' da receita';
+      monthShort(data.months[REF]) + ' — margem líquida (sem obra) ' + fmt1pct(r.margem_liquida_pct) + ' da receita';
 
     const kpis = document.getElementById('dre-kpis');
     const rows = [
-      ['Receita Líquida', r.receita_liquida, null],
-      ['Custos Fixos', r.custos_fixos, r.custos_fixos_pct],
-      ['Custos Variáveis', r.custos_variaveis, r.custos_variaveis_pct],
-      ['Margem Líquida', r.margem_liquida, r.margem_liquida_pct],
+      ['Receita Líquida', r.receita_liquida, null, false],
+      ['Custo Fixo', r.custos_fixos, r.custos_fixos_pct, false],
+      ['Custo Variável', r.custos_variaveis, r.custos_variaveis_pct, false],
+      ['Margem Líquida', r.margem_liquida, r.margem_liquida_pct, false],
+      ['Custo Obra', r.custo_obra, r.custo_obra_pct, true],
     ];
-    rows.forEach(([label, val, pct]) => {
+    rows.forEach(([label, val, pct, isObra]) => {
       const el = document.createElement('div');
-      el.className = 'dre-kpi';
+      el.className = 'dre-kpi' + (isObra ? ' is-obra' : '');
       el.innerHTML = `
         <div class="label">${label}</div>
         <div class="value">${moneySpan(val)}</div>
@@ -176,19 +173,23 @@
       kpis.appendChild(el);
     });
 
+    // Tabela mês a mês (jul./26 – ago./27), mesma estrutura seccionada da DRE_Mensal —
+    // Custo Obra segue nas linhas normais (Variável Obra), separado só nos KPIs acima.
+    const thead = document.getElementById('dre-detail-head');
+    const headCells = ['Linha'].concat(data.months.map(monthShort)).concat(['Total']);
+    thead.innerHTML = `<tr>${headCells.map((h, i) => `<th${i > 0 ? ' class="num"' : ''}>${h}</th>`).join('')}</tr>`;
+
     const tbody = document.getElementById('dre-detail-body');
     data.dre_detalhe.forEach((row) => {
       const tr = document.createElement('tr');
       if (row.kind === 'HEADER') {
         tr.className = 'row-header';
-        tr.innerHTML = `<td colspan="3">${row.label}</td>`;
+        tr.innerHTML = `<td colspan="${headCells.length}">${row.label}</td>`;
       } else {
         tr.className = row.kind === 'SUBTOTAL' ? 'row-subtotal' : 'row-line';
-        tr.innerHTML = `
-          <td>${row.label}</td>
-          <td class="num">${moneySpan(row.valor)}</td>
-          <td class="num">${fmt1pct(row.pct_peso)}</td>
-        `;
+        const total = row.vals.reduce((s, v) => s + v, 0);
+        const cells = row.vals.map((v) => `<td class="num">${moneySpan(v)}</td>`).join('');
+        tr.innerHTML = `<td>${row.label}</td>${cells}<td class="num">${moneySpan(total)}</td>`;
       }
       tbody.appendChild(tr);
     });
@@ -234,9 +235,8 @@
     for (let i = 0; i < N; i++) {
       const v = abs(series[i]);
       const barY = y(v);
-      const isHeavy = v >= receitaMedia * 0.6;
       const g = el('g', {});
-      g.appendChild(el('rect', { x: x(i) - barW / 2, y: barY, width: barW, height: Math.max(MT + plotH - barY, 1), rx: 2, class: isHeavy ? 'bar-critical' : 'bar-neutral' }));
+      g.appendChild(el('rect', { x: x(i) - barW / 2, y: barY, width: barW, height: Math.max(MT + plotH - barY, 1), rx: 2, class: 'bar-critical' }));
       const hit = el('rect', { x: ML + slotW * i, y: MT, width: slotW, height: plotH, fill: 'transparent' });
       g.appendChild(hit);
       svg.appendChild(g);
@@ -381,13 +381,39 @@
       `;
       tbody.appendChild(tr);
     });
+
+    const totalDenom = (o.pago + o.pendente + o.futuro) || 1;
+    const totalTr = document.createElement('tr');
+    totalTr.className = 'row-total';
+    totalTr.innerHTML = `
+      <td>Total</td>
+      <td class="num">${fmt0(o.previsto)}</td>
+      <td class="num">${fmt0(o.pago)}</td>
+      <td class="num">${fmt1pct(obraPctPago)}</td>
+      <td class="num">${fmt0(o.pendente)}</td>
+      <td><div class="mini-bar">
+        <div style="width:${o.pago / totalDenom * 100}%; background: var(--good)"></div>
+        <div style="width:${o.pendente / totalDenom * 100}%; background: var(--warning)"></div>
+        <div style="width:${o.futuro / totalDenom * 100}%; background: var(--future)"></div>
+      </div></td>
+    `;
+    tbody.appendChild(totalTr);
   })();
 
   // ---------- Gastos por Tipo: Fixo Mensal / Parcelado / Discricionário, com subtotais ----------
   (function () {
     const container = document.getElementById('natureza-groups');
     const grandTotal = data.gastos_por_natureza.reduce((s, g) => s + g.total, 0) || 1;
-    document.getElementById('tipo-sub').textContent = 'Fatura atual do cartão — total de ' + fmt0(grandTotal);
+    document.getElementById('tipo-sub').textContent = 'Fatura atual do cartão';
+    document.getElementById('tipo-total').textContent = fmt0(grandTotal);
+
+    const summaryTiles = document.getElementById('tipo-summary-tiles');
+    data.gastos_por_natureza.forEach((g) => {
+      const el = document.createElement('div');
+      el.className = 'stat-tile';
+      el.innerHTML = `<div class="label">${g.natureza}</div><div class="value">${fmt0(g.total)}</div>`;
+      summaryTiles.appendChild(el);
+    });
 
     data.gastos_por_natureza.forEach((g, gi) => {
       const group = document.createElement('div');
@@ -416,10 +442,12 @@
   (function () {
     const items = data.dre_detalhe
       .filter((r) => r.kind === 'LINE' && (r.grupo === 'FIXO' || r.grupo === 'VARIAVEL'))
+      .map((r) => ({ label: r.label, valor: r.vals[REF] }))
       .sort((a, b) => abs(b.valor) - abs(a.valor));
     const total = items.reduce((s, r) => s + r.valor, 0);
     document.getElementById('composicao-sub').textContent =
       monthShort(data.months[REF]) + ' — linhas de saída (Fixo + Variável)';
+    document.getElementById('composicao-total').innerHTML = moneySpan(total);
 
     const list = document.getElementById('composicao-list');
     items.forEach((r) => {
@@ -428,10 +456,6 @@
       row.innerHTML = `<span class="name">${r.label}</span><span class="val">${moneySpan(r.valor)}</span>`;
       list.appendChild(row);
     });
-    const totalRow = document.createElement('div');
-    totalRow.className = 'plain-list-row total';
-    totalRow.innerHTML = `<span class="name">Total</span><span class="val">${moneySpan(total)}</span>`;
-    list.appendChild(totalRow);
   })();
 
   // ---------- alertas ----------
@@ -452,10 +476,10 @@
   // ---------- footnotes ----------
   document.getElementById('footnotes').innerHTML = `
     <div><b>Mês de referência</b> para os indicadores mensais e distribuição de parcelas de cartão: ${monthShort(data.months[REF])}.</div>
-    <div><b>Moradia Saúde</b> (aluguel + condomínio + Enel + internet + cartão da casa) passou a ser paga diretamente pela Gabi — informativa, não entra nas saídas. A moradia do apartamento novo (VM) continua nos Custos Fixos.</div>
-    <div><b>Cartão Obra</b> usa o valor mensal já projetado em Fluxo_Apto_Realizado (linha 55 — Cartão), classificado como despesa Variável na DRE.</div>
+    <div><b>Apto Saúde</b> devolvido em ago./26 — a partir de set./26 restou só o Cartão Crédito Casa, projetado mês a mês pelas parcelas pendentes em Despesas_Casa (aba própria); as demais linhas (aluguel/condomínio/Enel/internet) zeram. Informativo, paga a Gabi, não entra nas saídas.</div>
+    <div><b>Cartão Obra</b> usa o valor mensal já projetado em Fluxo_Apto_Realizado (linha 55 — Cartão); a Margem Líquida da DRE Resumida separa esse custo (Custo Obra) por ter prazo pra terminar — a versão que inclui a obra continua na tabela de detalhamento.</div>
     <div><b>Financiamento da obra</b>: quando a parcela do cartão da obra supera o salário líquido do mês, a diferença é retirada do investimento (${fmt0(data.financiamento_obra.investimento_bloqueado_total)} hoje) para o caixa nunca fechar negativo — projeção até ${monthShort(data.months[N - 1])}.</div>
     <div><b>Cartão pessoal</b> detalhado a partir de ${data.n_itens_cartao_pessoal} itens de Contas!Cartão Pessoal; ${data.n_itens_obra_cartao} itens marcados "Obra Apto" aparecem em Gastos por Tipo mas o valor mensal de obra usado na DRE vem de Fluxo_Apto_Realizado, não deste cadastro.</div>
-    <div>Fonte: planilha Google Sheets FL_2024 — abas DRE_Mensal, Obra_Consolidado, Fluxo_Caixa e Gastos_Por_Tipo. Regenerar com <code>daily_update.py</code>.</div>
+    <div>Fonte: planilha Google Sheets FL_2024 — abas DRE_Mensal, Obra_Consolidado, Fluxo_Caixa, Gastos_Por_Tipo e Despesas_Casa. Regenerar com <code>daily_update.py</code>.</div>
   `;
 })();

@@ -40,8 +40,11 @@ GROUPS = [
     ("Vale Alimentação", "DEDUCOES"),
     ("Desc. Plano Saúde + Dental", "DEDUCOES"),
     ("Desc. Farmácia", "DEDUCOES"),
-    ("13º Salário", "DEDUCOES"),
+    ("13º Salário", "DEDUCOES"),  # ago./26 em diante: linha reaproveitada p/ Restituição IR (ver LABEL_OVERRIDES)
     ("(-) MORADIA SAÚDE (PAGO POR GABI — INFORMATIVO, NÃO ENTRA NA MARGEM)", None),
+    # Apto Saúde devolvido em ago./26 — a partir de set./26 (SET_MONTH_LABEL) estas 4 linhas
+    # são zeradas e "Cartão Crédito Casa" passa a refletir só as parcelas pendentes de
+    # Despesas_Casa (ver apply_despesas_casa_handover, aplicado logo após load_projecao()).
     ("Aluguel Saúde Saúde", "MORADIA_GABI"),
     ("Condominio + Gás + Agua Saúde", "MORADIA_GABI"),
     ("Enel Saúde", "MORADIA_GABI"),
@@ -70,11 +73,13 @@ GROUPS = [
     ("Barbearia + Farmácia", "VARIAVEL"),
     ("(-) CUSTOS VARIÁVEIS — OBRA", None),
     ("Pix Pagamentos Obra", "VARIAVEL_OBRA"),
-    ("(+) OUTRAS RECEITAS / APORTES", None),
-    ("Gabriela", "OUTRAS_RECEITAS"),
     ("(-) INVESTIMENTOS", None),
     ("Investimentos", "INVESTIMENTOS"),
 ]
+
+LABEL_OVERRIDES = {
+    "13º Salário": "Restituição IR (linha reaproveitada de 13º Salário)",
+}
 
 
 def get_clients():
@@ -218,6 +223,75 @@ def load_cartao_obra_mensal(ws, proj_months):
     return aligned
 
 
+DESPESAS_CASA_TAB = "Despesas_Casa"
+SET_MONTH_LABEL = "set./26"
+SAUDE_APT_ROWS = ["Aluguel Saúde Saúde", "Condominio + Gás + Agua Saúde", "Enel Saúde", "Internet - Saúde"]
+
+
+def load_despesas_casa_cartao_mensal(ws, proj_months, from_label=SET_MONTH_LABEL):
+    """Read Despesas_Casa's card-item block (Gasto | R$ | Tipo | Banco) and project it
+    forward as the new 'Cartão Crédito Casa' monthly value from `from_label` on — o apto
+    Saúde foi devolvido em ago./26, então o que resta são só as parcelas já lançadas antes
+    da devolução. Itens sem 'Parcela X/Y' são compra avulsa (já cobrada no mês descrito
+    pela aba) e não se repetem nos meses seguintes."""
+    values = ws.get_all_values()
+    header_idx = None
+    for i, row in enumerate(values):
+        if len(row) > 9 and row[7].strip() == "Gasto" and row[9].strip() == "Tipo":
+            header_idx = i
+            break
+    n = len(proj_months)
+    if header_idx is None:
+        return [0.0] * n
+
+    items = []
+    for row in values[header_idx + 1:]:
+        desc = row[7].strip() if len(row) > 7 else ""
+        if not desc or desc.upper().startswith("TOTAL"):
+            break
+        valor = br_to_float(row[8]) if len(row) > 8 else 0.0
+        m = PARCELA_RE.search(desc)
+        if m:
+            atual, total = int(m.group(1)), int(m.group(2))
+            restantes = max(total - atual + 1, 1)
+        else:
+            restantes = 1
+        items.append({"valor": valor, "restantes": restantes})
+
+    aligned = [0.0] * n
+    if from_label not in proj_months:
+        return aligned
+    from_idx = proj_months.index(from_label)
+    for it in items:
+        for k in range(it["restantes"]):
+            idx = from_idx + k
+            if idx < n:
+                aligned[idx] += -abs(it["valor"])
+    return aligned
+
+
+def apply_despesas_casa_handover(months, data, despesas_casa_ws, from_label=SET_MONTH_LABEL):
+    """Apto Saúde devolvido em ago./26: zera as 4 linhas de moradia (Aluguel/Condomínio+
+    Gás+Água/Enel/Internet Saúde) a partir de `from_label` e troca 'Cartão Crédito Casa'
+    pela projeção de parcelas pendentes de Despesas_Casa a partir do mesmo mês — mantém
+    os valores históricos (jul./ago.) como já estavam registrados no Projeção. Muda `data`
+    in place e também retorna, para uso direto em atribuição."""
+    from_idx = months.index(from_label) if from_label in months else len(months)
+    for label in SAUDE_APT_ROWS:
+        if label in data:
+            vals = list(data[label])
+            for i in range(from_idx, len(vals)):
+                vals[i] = 0.0
+            data[label] = vals
+
+    cartao_casa = list(data.get("Cartão Crédito Casa", [0.0] * len(months)))
+    projected = load_despesas_casa_cartao_mensal(despesas_casa_ws, months, from_label)
+    for i in range(from_idx, len(cartao_casa)):
+        cartao_casa[i] = projected[i] if i < len(projected) else 0.0
+    data["Cartão Crédito Casa"] = cartao_casa
+    return data
+
+
 # Extrato BB (conta 3494-0 / 48516-0), posição em 20/08/2026 — atualize manualmente
 # a cada novo extrato até termos ingestão automática.
 SALDO_DISPONIVEL_IMEDIATO = 25371.41
@@ -310,6 +384,8 @@ def br_to_float(s):
         return 0.0
     negative = s.startswith("(") and s.endswith(")")
     s = s.strip("()").strip()
+    if s.upper().startswith("R$"):
+        s = s[2:].strip()
     is_pct = s.endswith("%")
     if is_pct:
         s = s[:-1].strip()

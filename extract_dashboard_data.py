@@ -2,93 +2,25 @@ import json
 from collections import OrderedDict
 
 from finlib import (
-    get_clients, GROUPS, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, REF_MONTH_INDEX,
+    get_clients, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, DESPESAS_CASA_TAB, REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals, fmt_brl,
-    compute_financiamento_obra,
+    apply_despesas_casa_handover, compute_financiamento_obra,
 )
-from build_dre import SUBTOTAL_LABEL
+from build_dre import build_rows
 from build_obra import load_items_and_colors, payment_summary, SRC_TAB as OBRA_TAB
 from build_gastos_tipo import group_by_natureza, NATUREZA_ORDEM
 
 OUT_PATH = "dashboard_data.json"
 
 
-def dre_detalhe_for_month(data, ctipo, cartao_obra_mensal, totals, month_idx, base_receita):
-    """Sectioned line-item list (kind HEADER/LINE/SUBTOTAL) for one reference month,
-    mirroring the exact structure of build_dre.build_rows() / Projeção Gastos_Atualizados:
-    Salário Bruto -> deduções -> Salário Líquido -> Fixo (subtotal) -> Variável (subtotal)
-    -> Variável Obra (subtotal) -> Margem Líquida. `grupo` is kept for internal filtering
-    (e.g. Composição das Despesas) but is not meant to be rendered as a column."""
-    rows = []
-    i = 0
-    while i < len(GROUPS):
-        label, group = GROUPS[i]
-        if group is None:
-            rows.append({"kind": "HEADER", "label": label, "grupo": None, "valor": None, "pct_peso": None})
-            j = i + 1
-            grp_key = None
-            while j < len(GROUPS) and GROUPS[j][1] is not None:
-                sub_label, sub_group = GROUPS[j]
-                grp_key = sub_group
-                if sub_label in data:
-                    val = data[sub_label][month_idx]
-                    rows.append({
-                        "kind": "LINE", "label": sub_label.replace("#2", ""), "grupo": grp_key, "valor": val,
-                        "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
-                    })
-                j += 1
-            if grp_key == "VARIAVEL":
-                for tipo, vals in sorted(ctipo.items(), key=lambda kv: -sum(kv[1])):
-                    val = vals[month_idx]
-                    rows.append({
-                        "kind": "LINE", "label": f"Cartão Pessoal — {tipo}", "grupo": "VARIAVEL", "valor": val,
-                        "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
-                    })
-                val = totals["variavel"][month_idx]
-                rows.append({
-                    "kind": "SUBTOTAL", "label": SUBTOTAL_LABEL["VARIAVEL"], "grupo": "VARIAVEL", "valor": val,
-                    "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
-                })
-            elif grp_key == "VARIAVEL_OBRA":
-                val = cartao_obra_mensal[month_idx]
-                rows.append({
-                    "kind": "LINE", "label": "Cartão Obra (parcelas — Fluxo_Apto_Realizado)", "grupo": "VARIAVEL_OBRA",
-                    "valor": val, "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
-                })
-                val = totals["variavel_obra"][month_idx]
-                rows.append({
-                    "kind": "SUBTOTAL", "label": SUBTOTAL_LABEL["VARIAVEL_OBRA"], "grupo": "VARIAVEL_OBRA", "valor": val,
-                    "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
-                })
-            elif grp_key == "RECEITA_BRUTA":
-                pass  # linha única — subtotal seria redundante
-            elif grp_key == "DEDUCOES":
-                val = totals["receita_liquida"][month_idx]
-                rows.append({
-                    "kind": "SUBTOTAL", "label": SUBTOTAL_LABEL["DEDUCOES"], "grupo": "DEDUCOES", "valor": val,
-                    "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
-                })
-            elif grp_key is not None:
-                key_totals = {
-                    "MORADIA_GABI": totals["moradia_gabi"], "FIXO": totals["fixo"],
-                    "OUTRAS_RECEITAS": totals["outras_receitas"], "INVESTIMENTOS": totals["investimentos"],
-                }
-                val = key_totals[grp_key][month_idx]
-                rows.append({
-                    "kind": "SUBTOTAL", "label": SUBTOTAL_LABEL.get(grp_key, "Subtotal"), "grupo": grp_key, "valor": val,
-                    "pct_peso": abs(val) / base_receita * 100 if base_receita else 0,
-                })
-            i = j
-        else:
-            i += 1
-
-    rows.append({"kind": "HEADER", "label": "(=) MARGEM LÍQUIDA", "grupo": None, "valor": None, "pct_peso": None})
-    val = totals["margem_liquida"][month_idx]
-    rows.append({
-        "kind": "SUBTOTAL", "label": "Margem Líquida (Entradas − Saídas)", "grupo": "MARGEM", "valor": val,
-        "pct_peso": val / base_receita * 100 if base_receita else 0,
-    })
-    return rows
+def dre_detalhe_full(months, data, ctipo, cartao_obra_mensal, totals):
+    """Sectioned line-item list (kind HEADER/LINE/SUBTOTAL) across ALL months, reusing
+    build_dre.build_rows() so the dashboard's DRE detail table is exactly the DRE_Mensal
+    sheet's own structure. `grupo` (raw group key) is kept for internal filtering (e.g.
+    Composição das Despesas) but is not meant to be rendered as its own column."""
+    rows = build_rows(months, data, ctipo, cartao_obra_mensal, totals)
+    return [{"kind": kind, "label": label, "grupo": grp, "vals": list(vals) if vals is not None else None}
+            for kind, label, vals, _classif, grp in rows]
 
 
 def build_alerts(months, ref, totals, cartao_obra_mensal, obra, gastos_natureza, saldo_investimento_series):
@@ -131,7 +63,9 @@ def main():
     proj_ws = sh.worksheet(PROJ_TAB)
     contas_ws = sh.worksheet(CONTAS_TAB)
     apto_ws = sh.worksheet(FLUXO_APTO_TAB)
+    despesas_casa_ws = sh.worksheet(DESPESAS_CASA_TAB)
     months, proj_data = load_projecao(proj_ws)
+    apply_despesas_casa_handover(months, proj_data, despesas_casa_ws)
     n = len(months)
     ref = REF_MONTH_INDEX
 
@@ -152,20 +86,26 @@ def main():
     anchor = raw_cum[ref] - fin["saldo_disponivel_imediato"]
     saldo_acumulado = [v - anchor for v in raw_cum]
 
-    # ---- DRE resumo (mês de referência) ----
-    base_receita = abs(totals["receita_liquida"][ref] + totals["outras_receitas"][ref]) or 1.0
+    # ---- DRE resumo (mês de referência) — Custo Obra separado da Margem Líquida,
+    # já que a obra tem prazo pra terminar e não deveria diluir a margem recorrente.
+    receita_liquida_ref = totals["receita_liquida"][ref]
+    custos_fixos_ref = totals["fixo"][ref]
+    custos_variaveis_ref = totals["variavel"][ref]
+    custo_obra_ref = totals["variavel_obra"][ref]
+    margem_sem_obra_ref = receita_liquida_ref + custos_fixos_ref + custos_variaveis_ref
+    base_receita = abs(receita_liquida_ref) or 1.0
     dre_resumo = {
-        "receita_liquida": totals["receita_liquida"][ref] + totals["outras_receitas"][ref],
-        "custos_fixos": totals["fixo"][ref],
-        "custos_fixos_pct": abs(totals["fixo"][ref]) / base_receita * 100,
-        "custos_variaveis": totals["variavel"][ref],
-        "custos_variaveis_pct": abs(totals["variavel"][ref]) / base_receita * 100,
-        "investimentos": totals["investimentos"][ref],
-        "investimentos_pct": abs(totals["investimentos"][ref]) / base_receita * 100,
-        "margem_liquida": totals["margem_liquida"][ref],
-        "margem_liquida_pct": totals["margem_liquida"][ref] / base_receita * 100,
+        "receita_liquida": receita_liquida_ref,
+        "custos_fixos": custos_fixos_ref,
+        "custos_fixos_pct": abs(custos_fixos_ref) / base_receita * 100,
+        "custos_variaveis": custos_variaveis_ref,
+        "custos_variaveis_pct": abs(custos_variaveis_ref) / base_receita * 100,
+        "custo_obra": custo_obra_ref,
+        "custo_obra_pct": abs(custo_obra_ref) / base_receita * 100,
+        "margem_liquida": margem_sem_obra_ref,
+        "margem_liquida_pct": margem_sem_obra_ref / base_receita * 100,
     }
-    dre_detalhe = dre_detalhe_for_month(proj_data, ctipo, cartao_obra_mensal, totals, ref, base_receita)
+    dre_detalhe = dre_detalhe_full(months, proj_data, ctipo, cartao_obra_mensal, totals)
 
     # ---- Gastos por Tipo: Fixo Mensal / Parcelado / Discricionário, com subtotais ----
     by_natureza = group_by_natureza(card_items)
