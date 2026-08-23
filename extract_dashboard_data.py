@@ -180,11 +180,14 @@ def main():
     class_rollup = [{"classificacao": c, **acc} for c, acc in sorted(by_class.items(), key=lambda kv: -kv[1]["previsto"])]
 
     pagamentos = payment_summary(items)
-    # "Cartão a vencer" reconciliado com o mesmo dado mensal do gráfico Cartão Obra —
-    # soma de Fluxo_Apto_Realizado!linha 55 a partir do mês de referência, não a
-    # classificação por cor das células do item table (que só reflete parcelas já
-    # lançadas linha a linha e diverge do agendamento consolidado da linha 55).
-    pagamentos["cartao_futuro"] = sum(abs(v) for v in cartao_obra_mensal[ref:])
+    # "Cartão a vencer" usa a classificação por cor das células do item table (a mesma
+    # fonte do totalizador "Pendente Cartão" da tabela por classificação) — soma de
+    # Fluxo_Apto_Realizado!linha 55 a partir do mês de referência SUPERESTIMA o valor
+    # porque inclui o mês de referência inteiro mesmo quando a parcela desse mês já foi
+    # paga (cartão nunca fica "pendente/rosa", só "pago/verde" ou "futuro/branco" —
+    # verificado: pago R$29.407,90 + futuro R$143.334,00 ≈ R$172.741,90 soma toda a
+    # linha 55 do período, R$172.160,50; a diferença pro "a vencer" some quando o mês
+    # de referência já pago some do lado errado da conta).
     obra_out = {
         "previsto": grand_previsto, "pago": grand_pago, "pendente": grand_pendente, "futuro": grand_futuro,
         "por_classificacao": class_rollup,

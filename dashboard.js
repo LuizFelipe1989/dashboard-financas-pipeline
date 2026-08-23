@@ -30,16 +30,43 @@
   const saldoFinal = data.saldo_acumulado[N - 1];
   const obraPctPago = data.obra.previsto ? (data.obra.pago / data.obra.previsto * 100) : 0;
 
-  function kpiTile({ label, value, deltaText, deltaClass, foot, meter }) {
+  function donutSvg(pct, colorVar, size, stroke) {
+    size = size || 56; stroke = stroke || 7;
+    const p = Math.max(0, Math.min(100, pct));
+    const r = (size - stroke) / 2;
+    const c = 2 * Math.PI * r;
+    const offset = c * (1 - p / 100);
+    const cx = size / 2, cy = size / 2;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--neutral-track)" stroke-width="${stroke}" />
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${colorVar}" stroke-width="${stroke}"
+        stroke-dasharray="${c}" stroke-dashoffset="${offset}" stroke-linecap="round"
+        transform="rotate(-90 ${cx} ${cy})" />
+    </svg>`;
+  }
+
+  function kpiTile({ label, value, deltaText, deltaClass, foot, meter, donut }) {
     const el = document.createElement('div');
-    el.className = 'kpi-tile';
-    el.innerHTML = `
+    el.className = 'kpi-tile' + (donut ? ' has-donut' : '');
+    const body = `
       <div class="label">${label}</div>
-      <div class="value">${value}</div>
+      ${donut ? '' : `<div class="value">${value}</div>`}
       ${deltaText ? `<span class="delta ${deltaClass}">${deltaText}</span>` : ''}
       ${meter !== undefined ? `<div class="meter-track"><div class="meter-fill" style="width:${meter}%"></div></div>` : ''}
       ${foot ? `<div class="foot">${foot}</div>` : ''}
     `;
+    if (donut) {
+      const size = donut.size || 56;
+      el.innerHTML = `
+        <div class="donut-wrap" style="width:${size}px;height:${size}px">
+          ${donutSvg(donut.pct, donut.color || 'var(--accent)', size, donut.stroke)}
+          <div class="donut-value" style="font-size:${size <= 48 ? 10.5 : 12}px;color:${donut.color || 'var(--accent)'}">${fmt1pct(donut.pct)}</div>
+        </div>
+        <div class="kpi-body">${body}</div>
+      `;
+    } else {
+      el.innerHTML = body;
+    }
     return el;
   }
 
@@ -63,8 +90,8 @@
     deltaClass: saldoFinal >= 0 ? 'good' : 'critical',
   }));
   kpiRow.appendChild(kpiTile({
-    label: 'Obra — % pago', value: fmt1pct(obraPctPago),
-    meter: Math.min(obraPctPago, 100),
+    label: 'Obra — % pago',
+    donut: { pct: obraPctPago, color: 'var(--accent)' },
     foot: fmt0(data.obra.pago) + ' de ' + fmt0(data.obra.previsto),
   }));
 
@@ -165,10 +192,17 @@
     rows.forEach(([label, val, pct, isObra]) => {
       const el = document.createElement('div');
       el.className = 'dre-kpi' + (isObra ? ' is-obra' : '');
+      const showDonut = label === 'Margem Líquida' || label === 'Custo Obra';
+      const donutColor = isObra ? 'var(--warning)' : (val >= 0 ? 'var(--good)' : 'var(--critical)');
       el.innerHTML = `
         <div class="label">${label}</div>
-        <div class="value">${moneySpan(val)}</div>
-        ${pct !== null ? `<div class="pct">${fmt1pct(pct)} da receita</div>` : ''}
+        <div class="dre-kpi-row">
+          <div class="kpi-body">
+            <div class="value">${moneySpan(val)}</div>
+            ${pct !== null ? `<div class="pct">${fmt1pct(pct)} da receita</div>` : ''}
+          </div>
+          ${showDonut && pct !== null ? `<div class="donut-wrap" style="width:38px;height:38px">${donutSvg(pct, donutColor, 38, 5)}</div>` : ''}
+        </div>
       `;
       kpis.appendChild(el);
     });
