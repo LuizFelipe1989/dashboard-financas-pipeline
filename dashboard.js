@@ -11,13 +11,43 @@
     return v < 0 ? `(${s})` : s;
   }
   function moneySpan(v) {
-    return `<span class="${v < 0 ? 'neg' : ''}">${fmt0(v)}</span>`;
+    return `<span class="sv${v < 0 ? ' neg' : ''}">${fmt0(v)}</span>`;
   }
   function fmt1pct(v) {
     const s = abs(v).toLocaleString('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + '%';
     return v < 0 ? `(${s})` : s;
   }
   const monthShort = (m) => { const [mon, yr] = m.split('./'); return mon.charAt(0).toUpperCase() + mon.slice(1) + '/' + yr; };
+
+  // Envolve qualquer "R$ ..." solto num texto narrativo (alerta, rodapé, subtítulo)
+  // numa <span class="sv"> pra entrar no modo privacidade — mais simples e robusto
+  // que caçar cada interpolação de fmt0()/fmt_brl() individualmente pelo arquivo.
+  function wrapMoney(html) {
+    return html.replace(/\(?R\$\s?\(?-?[\d][\d.,]*\)?\)?/g, (m) => `<span class="sv">${m}</span>`);
+  }
+
+  // ---------- modo privacidade (ocultar valores) ----------
+  (function () {
+    const btn = document.getElementById('privacy-toggle');
+    const iconEye = document.getElementById('privacy-icon-eye');
+    const iconEyeOff = document.getElementById('privacy-icon-eye-off');
+    const label = document.getElementById('privacy-label');
+    function apply(on) {
+      document.body.classList.toggle('privacy-on', on);
+      btn.setAttribute('aria-pressed', String(on));
+      iconEye.style.display = on ? 'none' : '';
+      iconEyeOff.style.display = on ? '' : 'none';
+      label.textContent = on ? 'Mostrar valores' : 'Ocultar valores';
+    }
+    let saved = false;
+    try { saved = localStorage.getItem('dash_privacy_on') === '1'; } catch (e) {}
+    apply(saved);
+    btn.addEventListener('click', () => {
+      const on = !document.body.classList.contains('privacy-on');
+      apply(on);
+      try { localStorage.setItem('dash_privacy_on', on ? '1' : '0'); } catch (e) {}
+    });
+  })();
 
   // ---------- meta ----------
   document.getElementById('meta-ref').textContent = 'Próximo mês (fatura 10/' + data.months[REF].split('./')[0] + '): ' + monthShort(data.months[REF]);
@@ -48,13 +78,13 @@
   function kpiTile({ label, value, deltaText, deltaClass, foot, meter, donut }) {
     const el = document.createElement('div');
     el.className = 'kpi-tile' + (donut ? ' has-donut' : '');
-    const body = `
+    const body = wrapMoney(`
       <div class="label">${label}</div>
       ${donut ? '' : `<div class="value">${value}</div>`}
       ${deltaText ? `<span class="delta ${deltaClass}">${deltaText}</span>` : ''}
       ${meter !== undefined ? `<div class="meter-track"><div class="meter-fill" style="width:${meter}%"></div></div>` : ''}
       ${foot ? `<div class="foot">${foot}</div>` : ''}
-    `;
+    `);
     if (donut) {
       const size = donut.size || 56;
       el.innerHTML = `
@@ -163,13 +193,13 @@
         if (left > rect.width - 180) left = ev.clientX - rect.left - 180;
         tooltip.style.left = left + 'px';
         tooltip.style.top = (ev.clientY - rect.top - 66) + 'px';
-        tooltip.innerHTML = `
+        tooltip.innerHTML = wrapMoney(`
           <div class="t-month">${monthShort(data.months[i])}</div>
           <div class="t-row"><span>Entradas</span><span style="color:var(--good)">${fmt0(entradas[i])}</span></div>
           <div class="t-row"><span>Saídas</span><span style="color:var(--critical)">${fmt0(saidas[i])}</span></div>
           <div class="t-row"><span>Saldo líquido</span>${moneySpan(entradas[i] + saidas[i])}</div>
           <div class="t-row"><span>Acumulado</span>${moneySpan(saldoAcum[i])}</div>
-        `;
+        `);
       });
       hit.addEventListener('mouseleave', () => { tooltip.style.opacity = 0; });
     });
@@ -235,8 +265,8 @@
     const series = data.cartao_obra_mensal;
     const mesRefValor = abs(series[REF]);
     const receitaMedia = data.months.reduce((s, _, i) => s + data.entradas[i], 0) / N;
-    document.getElementById('cartao-obra-sub').textContent =
-      `${fmt0(mesRefValor)} em ${monthShort(data.months[REF])} · fonte: Fluxo_Apto_Realizado (linha 55) · pico de ${fmt0(Math.min(...series))} no horizonte`;
+    document.getElementById('cartao-obra-sub').innerHTML = wrapMoney(
+      `${fmt0(mesRefValor)} em ${monthShort(data.months[REF])} · fonte: Fluxo_Apto_Realizado (linha 55) · pico de ${fmt0(Math.min(...series))} no horizonte`);
 
     const W = 340, H = 220, ML = 46, MR = 10, MT = 14, MB = 26;
     const plotW = W - ML - MR, plotH = H - MT - MB;
@@ -297,8 +327,8 @@
     const svg = document.getElementById('financiamento-chart');
     const f = data.financiamento_obra;
     const jul27 = data.jul27_index;
-    document.getElementById('financiamento-sub').textContent =
-      `${fmt0(f.investimento_bloqueado_total)} disponíveis hoje · projeção em ${monthShort(data.months[jul27])}: ${fmt0(f.saldo_investimento[jul27])}`;
+    document.getElementById('financiamento-sub').innerHTML = wrapMoney(
+      `${fmt0(f.investimento_bloqueado_total)} disponíveis hoje · projeção em ${monthShort(data.months[jul27])}: ${fmt0(f.saldo_investimento[jul27])}`);
 
     // Ponte histórica: um ponto "Início" com a posição bruta do fundo antes de ser
     // consumido pela obra (~R$144k em jul./26), antes da série modelada (que já parte
@@ -381,7 +411,7 @@
       });
       hit.addEventListener('mouseleave', () => { tooltip.style.opacity = 0; });
     }
-    const jul27Lbl = el('text', { x: x(localJul27), y: y(series[localJul27]) + (series[localJul27] < 0 ? 16 : -10), 'text-anchor': 'middle', fill: series[localJul27] < 0 ? 'var(--critical)' : 'var(--accent)', 'font-weight': 600, 'font-size': 11 });
+    const jul27Lbl = el('text', { x: x(localJul27), y: y(series[localJul27]) + (series[localJul27] < 0 ? 16 : -10), 'text-anchor': 'middle', class: 'sv', fill: series[localJul27] < 0 ? 'var(--critical)' : 'var(--accent)', 'font-weight': 600, 'font-size': 11 });
     jul27Lbl.textContent = fmt0(series[localJul27]);
     svg.appendChild(jul27Lbl);
   })();
@@ -389,8 +419,8 @@
   // ---------- Obra ----------
   (function () {
     const o = data.obra;
-    document.getElementById('obra-sub').textContent =
-      fmt0(o.previsto) + ' previstos · ' + fmt1pct(obraPctPago) + ' pago até o momento';
+    document.getElementById('obra-sub').innerHTML = wrapMoney(
+      fmt0(o.previsto) + ' previstos · ' + fmt1pct(obraPctPago) + ' pago até o momento');
 
     const p = data.pagamentos;
     const tiles = document.getElementById('pagamentos-tiles');
@@ -487,7 +517,7 @@
       details.className = 'invest-group';
       if (openByDefault) details.open = true;
       const summary = document.createElement('summary');
-      summary.innerHTML = `<span class="name">${group.nome}</span><span class="meta">${fmt0(group.valor_atual)} · ${fmt1pct(group.pct_part)}</span>`;
+      summary.innerHTML = wrapMoney(`<span class="name">${group.nome}</span><span class="meta">${fmt0(group.valor_atual)} · ${fmt1pct(group.pct_part)}</span>`);
       details.appendChild(summary);
 
       const wrap = document.createElement('div');
@@ -526,7 +556,7 @@
       inv.highlights.forEach((h) => {
         const el = document.createElement('div');
         el.className = 'alert-item';
-        el.innerHTML = `<span class="icon">${h.icon || 'ℹ️'}</span><span>${h.text}</span>`;
+        el.innerHTML = wrapMoney(`<span class="icon">${h.icon || 'ℹ️'}</span><span>${h.text}</span>`);
         highlights.appendChild(el);
       });
     }
@@ -550,7 +580,7 @@
     data.gastos_por_natureza.forEach((g, gi) => {
       const group = document.createElement('div');
       group.className = 'natureza-group';
-      group.innerHTML = `<div class="natureza-head"><span class="name">${g.natureza}</span><span class="val">${fmt0(g.total)} · ${g.pct.toFixed(1)}%</span></div>`;
+      group.innerHTML = wrapMoney(`<div class="natureza-head"><span class="name">${g.natureza}</span><span class="val">${fmt0(g.total)} · ${g.pct.toFixed(1)}%</span></div>`);
       const list = document.createElement('div');
       list.className = 'bar-list';
       g.tipos.forEach((t, i) => {
@@ -558,11 +588,11 @@
         const row = document.createElement('div');
         row.className = 'bar-list-row';
         const pctOfGroup = g.total ? (t.total / g.total * 100) : 0;
-        row.innerHTML = `
+        row.innerHTML = wrapMoney(`
           <span class="name">${t.tipo}</span>
           <span class="bar-track"><span class="bar-fill" style="width:${pctOfGroup}%; background:${color}"></span></span>
           <span class="val">${fmt0(t.total)}</span>
-        `;
+        `);
         list.appendChild(row);
       });
       group.appendChild(list);
@@ -616,7 +646,7 @@
     data.alerts.forEach((a) => {
       const el = document.createElement('div');
       el.className = 'alert-item';
-      el.innerHTML = `<span class="icon">${a.icon || '⚠️'}</span><span>${a.text}</span>`;
+      el.innerHTML = wrapMoney(`<span class="icon">${a.icon || '⚠️'}</span><span>${a.text}</span>`);
       list.appendChild(el);
     });
   })();
@@ -697,7 +727,7 @@
   })();
 
   // ---------- footnotes ----------
-  document.getElementById('footnotes').innerHTML = `
+  document.getElementById('footnotes').innerHTML = wrapMoney(`
     <div><b>Mês em foco</b> (indicadores, DRE Resumida, janela de pagamento, distribuição de parcelas de cartão): ${monthShort(data.months[REF])} — o próximo mês a acontecer. O saldo real conhecido é ancorado em ${monthShort(data.months[data.anchor_month_index])}, que já foi realizado.</div>
     <div><b>Janela de pagamento</b> lista os itens da Obra (Fluxo_Apto_Realizado) com valor lançado no mês em foco. Pix usa a tabela "Janela de Pagamentos" com datas reais quando ela existe pro mês (senão cai para o mês inteiro, por cor de célula); Cartão sempre por cor de célula — só dá o mês, a parcela específica não tem dia marcado.</div>
     <div><b>Apto Saúde</b> devolvido em ago./26 — a partir de set./26 restou só o Cartão Crédito Casa, projetado mês a mês pelas parcelas pendentes em Despesas_Casa (aba própria); as demais linhas (aluguel/condomínio/Enel/internet) zeram. Informativo, paga a Gabi, não entra nas saídas.</div>
@@ -705,5 +735,5 @@
     <div><b>Financiamento da obra</b>: o salário líquido (livre de custos fixos, que a Gabriela assume 100%) paga primeiro o cartão da obra; o fundo (${fmt0(data.financiamento_obra.investimento_bloqueado_total)} hoje) cobre só o Pix inteiro mais a parte do cartão que sobrar do salário — a partir do mês seguinte ao de referência. Quando o fundo esgota, o restante passa a sair do caixa corrente — projeção até ${monthShort(data.months[N - 1])}. O ponto "Início" no gráfico é a posição bruta do fundo antes da obra consumi-lo (${fmt0(data.financiamento_obra.posicao_inicial)} em ${monthShort(data.financiamento_obra.posicao_inicial_mes)}) — a linha tracejada até o primeiro mês é uma ponte ilustrativa (sem dado mensal real no meio), não projeção.</div>
     <div><b>Cartão pessoal</b> detalhado a partir de ${data.n_itens_cartao_pessoal} itens de Contas!Cartão Pessoal; ${data.n_itens_obra_cartao} itens marcados "Obra Apto" aparecem em Gastos por Tipo mas o valor mensal de obra usado na DRE vem de Fluxo_Apto_Realizado, não deste cadastro.</div>
     <div>Fonte: planilha Google Sheets FL_2024 — abas DRE_Mensal, Obra_Consolidado, Fluxo_Caixa, Gastos_Por_Tipo e Despesas_Casa. Regenerar com <code>daily_update.py</code>.</div>
-  `;
+  `);
 })();

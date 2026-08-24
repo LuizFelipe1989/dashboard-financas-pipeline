@@ -109,6 +109,30 @@ body {
 .masthead .meta { text-align: right; color: var(--ink-muted); font-size: 12px; font-family: 'Plex Mono Dash', monospace; }
 .masthead .meta div + div { margin-top: 2px; }
 
+.privacy-btn {
+  display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px;
+  padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--ink-secondary); font: inherit;
+  font-family: 'Plex Sans Dash', sans-serif; font-size: 11.5px; font-weight: 500;
+  cursor: pointer; transition: background .12s, color .12s, border-color .12s;
+}
+.privacy-btn:hover { background: var(--page); }
+.privacy-btn svg { width: 14px; height: 14px; flex: none; }
+body.privacy-on .privacy-btn { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+/* Modo privacidade: borra qualquer valor numérico exibido (KPIs, tabelas, tooltips,
+   textos narrativos com R$ embutido) sem mexer no layout — pensado pra mostrar o
+   dashboard pra alguém sem expor salário/saldo. */
+body.privacy-on .value,
+body.privacy-on .num,
+body.privacy-on .big-total,
+body.privacy-on .donut-value,
+body.privacy-on .sv,
+body.privacy-on text.axis-label {
+  filter: blur(6px);
+  user-select: none;
+}
+
 .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; font-weight: 600; color: var(--ink-muted); margin: 26px 0 10px; }
 .eyebrow:first-of-type { margin-top: 0; }
 
@@ -282,6 +306,11 @@ table.detail-table tr.row-total td { font-weight: 600; border-top: 1px solid var
       <div class="sub">Consolidado a partir de DRE_Mensal · Obra_Consolidado · Fluxo_Caixa · Gastos_Por_Tipo — planilha FL_2024</div>
     </div>
     <div class="meta">
+      <button type="button" class="privacy-btn" id="privacy-toggle" aria-pressed="false">
+        <svg id="privacy-icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg id="privacy-icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61C3.5 8.36 1 12 1 12s4 7 11 7a10.94 10.94 0 0 0 5.39-1.44M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+        <span id="privacy-label">Ocultar valores</span>
+      </button>
       <div id="meta-ref">—</div>
       <div id="meta-horizon">—</div>
     </div>

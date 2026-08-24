@@ -196,14 +196,14 @@ def compute_highlights(categorias, total, quotes, rent_ativa):
     if fundos_cat and fundos_cat["valor_atual"] / total_atual > 0.5:
         highlights.append({
             "icon": "🔒",
-            "text": f"{fmt_brl(fundos_cat['valor_atual'])} em Fundos de Investimento seguem dados em garantia do limite do cartão da obra — liquidez reduzida até a obra terminar.",
+            "text": f"R$ {fmt_brl(fundos_cat['valor_atual'])} em Fundos de Investimento seguem dados em garantia do limite do cartão da obra — liquidez reduzida até a obra terminar.",
         })
 
     if rent_ativa["rent_pct"] is not None:
         icon = "✅" if rent_ativa["rent_rs"] >= 0 else "⚠️"
         highlights.append({
             "icon": icon,
-            "text": f"Rentabilidade das posições ativas (comparáveis com a base original): {rent_ativa['rent_pct']:.1f}% ({fmt_brl(rent_ativa['rent_rs'])}).",
+            "text": f"Rentabilidade das posições ativas (comparáveis com a base original): {rent_ativa['rent_pct']:.1f}% (R$ {fmt_brl(rent_ativa['rent_rs'])}).",
         })
 
     return highlights[:6]
