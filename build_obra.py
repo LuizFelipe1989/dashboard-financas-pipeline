@@ -79,6 +79,51 @@ def load_items_and_colors(sh, sheets_api, ws):
     return items
 
 
+def load_month_window(sh, sheets_api, ws, month_label):
+    """Janela de pagamento de um mês específico do item table — cada item com valor
+    lançado nesse mês, com status (Pago/Pendente/Futuro), classificação e modalidade.
+    Dá a visão linha a linha do que é esperado sair naquele mês (não só o agregado),
+    pra apoiar decisão antecipada."""
+    values = ws.get_all_values()
+    header_row = values[HEADER_ROW - 1]
+    month_names = [c.strip() for c in header_row[9:22]]
+    if month_label not in month_names:
+        return []
+    month_offset = month_names.index(month_label)
+
+    range_a1 = f"{SRC_TAB}!{MONTH_COL_START}{FIRST_ITEM_ROW}:{MONTH_COL_END}{LAST_ITEM_ROW}"
+    resp = sheets_api.spreadsheets().get(
+        spreadsheetId=sh.id,
+        ranges=[range_a1],
+        fields="sheets.data.rowData.values(formattedValue,userEnteredFormat.backgroundColor)",
+    ).execute()
+    grid = resp["sheets"][0]["data"][0].get("rowData", [])
+
+    window = []
+    for r in range(FIRST_ITEM_ROW, LAST_ITEM_ROW + 1):
+        vals = values[r - 1]
+        itens = vals[1].strip() if len(vals) > 1 else ""
+        if not itens:
+            continue
+        row_cells = grid[r - FIRST_ITEM_ROW].get("values", []) if r - FIRST_ITEM_ROW < len(grid) else []
+        if month_offset >= len(row_cells):
+            continue
+        cell = row_cells[month_offset]
+        val = br_to_float(cell.get("formattedValue", ""))
+        if val == 0.0:
+            continue
+        status = classify_color(cell.get("userEnteredFormat", {}).get("backgroundColor", {}))
+        window.append({
+            "item": itens,
+            "modalidade": vals[2].strip() if len(vals) > 2 else "",
+            "classificacao": vals[3].strip() if len(vals) > 3 else "",
+            "valor": abs(val),
+            "status": status,
+        })
+    window.sort(key=lambda it: -it["valor"])
+    return window
+
+
 def payment_summary(items):
     """Cross-tab pago/pendente/futuro by Modalidade (Pix vs Cartão) — answers:
     quanto já foi pago (Pix+Cartão), quanto falta em Pix pendente, e quanto ainda

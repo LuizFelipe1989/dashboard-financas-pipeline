@@ -251,6 +251,11 @@ table.detail-table tr.row-line td:first-child { padding-left: 10px; color: var(-
 .invest-group table.detail-table { margin-top: 8px; }
 .invest-tag { font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-muted); font-style: italic; }
 
+.status-badge { font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; padding: 2px 7px; border-radius: 20px; white-space: nowrap; }
+.status-badge.pago { color: var(--good); background: var(--good-soft); }
+.status-badge.pendente { color: var(--warning); background: var(--warning-soft); }
+.status-badge.futuro { color: var(--future); background: var(--neutral-track); }
+
 /* alertas */
 .alert-list { display: flex; flex-direction: column; gap: 10px; }
 .alert-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: var(--warning-soft); font-size: 13px; line-height: 1.45; }
@@ -287,6 +292,19 @@ table.detail-table tr.row-line td:first-child { padding-left: 10px; color: var(-
   <div class="eyebrow">Alertas &amp; sinais de eficiência</div>
   <section class="panel" style="margin-bottom:16px;">
     <div class="alert-list" id="alert-list"></div>
+  </section>
+
+  <div class="eyebrow">Janela de pagamento</div>
+  <section class="panel" style="margin-bottom:16px;">
+    <h2 id="janela-title">—</h2>
+    <div class="panel-sub" id="janela-sub">—</div>
+    <div class="big-total" id="janela-total">—</div>
+    <div class="wide-scroll">
+      <table class="detail-table">
+        <thead><tr><th>Item</th><th>Classificação</th><th>Modalidade</th><th class="num">Valor</th><th>Status</th></tr></thead>
+        <tbody id="janela-table-body"></tbody>
+      </table>
+    </div>
   </section>
 
   <section class="panel">

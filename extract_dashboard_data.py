@@ -5,9 +5,10 @@ from finlib import (
     get_clients, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, DESPESAS_CASA_TAB, REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals, fmt_brl,
     apply_despesas_casa_handover, neutralize_investimentos_row, compute_financiamento_obra,
+    _MES_ABREV_PARA_NOME,
 )
 from build_dre import build_rows
-from build_obra import load_items_and_colors, payment_summary, SRC_TAB as OBRA_TAB
+from build_obra import load_items_and_colors, load_month_window, payment_summary, SRC_TAB as OBRA_TAB
 from build_gastos_tipo import group_by_natureza, NATUREZA_ORDEM
 from build_investimentos import (
     load_investimentos, ensure_live_quotes, get_fundo_obra_balance,
@@ -36,11 +37,21 @@ def dre_detalhe_full(months, data, ctipo, cartao_obra_mensal, totals):
     return out
 
 
-def build_alerts(months, ref, totals, cartao_obra_mensal, obra, gastos_natureza, saldo_investimento_series):
+def build_alerts(months, ref, totals, cartao_obra_mensal, obra, gastos_natureza, saldo_investimento_series, saldo_acumulado=None, invest_search_from=0):
     """Regras de bom senso sobre os dados frescos — mesma lógica que o agente da
     routine diária aplicaria; roda aqui também para manter o dashboard com alertas
-    sempre que os scripts locais forem executados, não só na rotina de nuvem."""
+    sempre que os scripts locais forem executados, não só na rotina de nuvem.
+    `ref` aqui é o mês em foco (dash_ref = próximo mês a acontecer), não o mês âncora."""
     alerts = []
+
+    if saldo_acumulado is not None:
+        saldo_mes_ref = saldo_acumulado[ref]
+        saldo_mes_anterior = saldo_acumulado[ref - 1] if ref > 0 else None
+        if saldo_mes_ref < 0:
+            alerts.append({"icon": "🚨", "text": f"Projeção de caixa fica negativa em {months[ref]}: R$ {fmt_brl(saldo_mes_ref)} acumulado — inclui a fatura do cartão de 10/{months[ref].split('./')[0]} (consumo de {months[ref-1]}). Vale antecipar uma decisão antes desse mês."})
+        elif saldo_mes_anterior is not None and saldo_mes_ref < saldo_mes_anterior:
+            queda = saldo_mes_ref - saldo_mes_anterior
+            alerts.append({"icon": "📉", "text": f"Caixa projetado cai R$ {fmt_brl(abs(queda))} em {months[ref]} (fatura de 10/{months[ref].split('./')[0]} inclusa) — acumulado vai a R$ {fmt_brl(saldo_mes_ref)}."})
 
     margem = totals["margem_liquida"][ref]
     if margem < 0:
@@ -50,7 +61,7 @@ def build_alerts(months, ref, totals, cartao_obra_mensal, obra, gastos_natureza,
     receita_ref = totals["receita_liquida"][ref]
     if receita_ref and cartao_obra_ref >= receita_ref * 0.6:
         pct = cartao_obra_ref / receita_ref * 100
-        alerts.append({"icon": "💳", "text": f"Parcela do cartão da obra em {months[ref]} consome {pct:.0f}% do salário líquido do mês."})
+        alerts.append({"icon": "💳", "text": f"Parcela do cartão da obra em {months[ref]} (fatura 10/{months[ref].split('./')[0]}) consome {pct:.0f}% do salário líquido do mês."})
 
     for c in obra["por_classificacao"]:
         if c["previsto"] and c["pago"] / c["previsto"] > 1.0:
@@ -62,8 +73,8 @@ def build_alerts(months, ref, totals, cartao_obra_mensal, obra, gastos_natureza,
     if disc_total / var_total > 0.15:
         alerts.append({"icon": "🔀", "text": f"Gastos discricionários (não recorrentes) somam R$ {fmt_brl(disc_total)} este mês — vale revisar."})
 
-    if saldo_investimento_series and min(saldo_investimento_series) <= 0:
-        idx0 = next((i for i, v in enumerate(saldo_investimento_series) if v <= 0), None)
+    if saldo_investimento_series:
+        idx0 = next((i for i in range(invest_search_from, len(saldo_investimento_series)) if saldo_investimento_series[i] <= 0), None)
         if idx0 is not None and idx0 < len(months):
             alerts.append({"icon": "📉", "text": f"No ritmo atual, o investimento usado para cobrir a parcela da obra se esgota por volta de {months[idx0]}."})
 
@@ -82,6 +93,12 @@ def main():
     neutralize_investimentos_row(proj_data)
     n = len(months)
     ref = REF_MONTH_INDEX
+    # Ago./26 já foi realizado (saldo real ancorado nele) — o mês em foco no dashboard
+    # (KPIs, DRE Resumida, alertas) passa a ser o seguinte: set./26, que ainda inclui a
+    # fatura do cartão de 10/set (consumo de agosto, abertura já imputada) e ainda não
+    # aconteceu de fato. O anchor/financiamento continuam usando `ref` (ago./26) sem
+    # mudança — é o ponto real conhecido (saldo do extrato).
+    dash_ref = ref + 1
 
     card_items = load_card_items(contas_ws)
     ctipo = cartao_por_tipo(card_items, n)
@@ -112,12 +129,13 @@ def main():
     anchor = raw_cum[ref] - fin["saldo_disponivel_imediato"]
     saldo_acumulado = [v - anchor for v in raw_cum]
 
-    # ---- DRE resumo (mês de referência) — Custo Obra separado da Margem Líquida,
-    # já que a obra tem prazo pra terminar e não deveria diluir a margem recorrente.
-    receita_liquida_ref = totals["receita_liquida"][ref]
-    custos_fixos_ref = totals["fixo"][ref]
-    custos_variaveis_ref = totals["variavel"][ref]
-    custo_obra_ref = totals["variavel_obra"][ref]
+    # ---- DRE resumo (mês em foco: dash_ref = set./26, o próximo a acontecer) — Custo
+    # Obra separado da Margem Líquida, já que a obra tem prazo pra terminar e não
+    # deveria diluir a margem recorrente.
+    receita_liquida_ref = totals["receita_liquida"][dash_ref]
+    custos_fixos_ref = totals["fixo"][dash_ref]
+    custos_variaveis_ref = totals["variavel"][dash_ref]
+    custo_obra_ref = totals["variavel_obra"][dash_ref]
     margem_sem_obra_ref = receita_liquida_ref + custos_fixos_ref + custos_variaveis_ref
     base_receita = abs(receita_liquida_ref) or 1.0
     dre_resumo = {
@@ -193,9 +211,23 @@ def main():
         "por_classificacao": class_rollup,
     }
 
+    # ---- Janela de pagamento do mês em foco: itens (Fluxo_Apto_Realizado) com valor
+    # lançado especificamente nesse mês, com status — quadro separado, não é o
+    # agregado da Obra, é a visão linha a linha do que é esperado sair.
+    mes_abrev = months[dash_ref].split("./")[0].strip().lower()
+    mes_nome = _MES_ABREV_PARA_NOME.get(mes_abrev, "").capitalize()
+    janela_pagamento = {
+        "mes": months[dash_ref],
+        "itens": load_month_window(sh, sheets_api, obra_ws, mes_nome),
+    }
+    janela_pagamento["total"] = sum(it["valor"] for it in janela_pagamento["itens"])
+
     jul27_idx = next((i for i, m in enumerate(months) if m.startswith("jul./27")), n - 1)
 
-    alerts = build_alerts(months, ref, totals, cartao_obra_mensal, obra_out, by_natureza, fin["saldo_investimento"][ref:])
+    alerts = build_alerts(
+        months, dash_ref, totals, cartao_obra_mensal, obra_out, by_natureza,
+        fin["saldo_investimento"], saldo_acumulado=saldo_acumulado, invest_search_from=ref,
+    )
 
     # ---- Investimentos: highlights de eficiência/concentração/liquidez (dados já
     # carregados no início de main(), inclusive para alimentar o financiamento da obra).
@@ -213,7 +245,8 @@ def main():
 
     out = {
         "months": months,
-        "ref_month_index": ref,
+        "ref_month_index": dash_ref,
+        "anchor_month_index": ref,
         "jul27_index": jul27_idx,
         "entradas": totals["entradas"],
         "saidas": totals["saidas"],
@@ -224,13 +257,14 @@ def main():
         "moradia_gabi": totals["moradia_gabi"],
         "custos_variaveis": totals["variavel"],
         "cartao_obra_mensal": cartao_obra_mensal,
-        "investimentos": totals["investimentos"],
+        "investimentos_dre": totals["investimentos"],
         "saldo_mes": saldo_mes,
         "saldo_acumulado": saldo_acumulado,
         "dre_resumo": dre_resumo,
         "dre_detalhe": dre_detalhe,
         "gastos_por_natureza": gastos_por_natureza,
         "obra": obra_out,
+        "janela_pagamento": janela_pagamento,
         "pagamentos": pagamentos,
         "financiamento_obra": {
             "investimento_bloqueado_total": fin["investimento_bloqueado_total"],
@@ -247,10 +281,12 @@ def main():
         json.dump(out, f, ensure_ascii=False, indent=2)
 
     print(f"{OUT_PATH} escrito.")
-    print(f"Mês referência: {months[ref]} | Margem Líquida: {dre_resumo['margem_liquida']:.2f}")
-    print(f"Entradas: {totals['entradas'][ref]:.2f} | Saídas: {totals['saidas'][ref]:.2f} | Saldo Líquido: {totals['saldo_liquido'][ref]:.2f}")
-    print(f"Cartão Obra (mês ref, via Fluxo_Apto_Realizado linha 55): {cartao_obra_mensal[ref]:.2f}")
-    print(f"Moradia paga por Gabi (só Saúde, mês ref): {totals['moradia_gabi'][ref]:.2f}")
+    print(f"Mês âncora (saldo real): {months[ref]} | Mês em foco (dashboard): {months[dash_ref]} | Margem Líquida: {dre_resumo['margem_liquida']:.2f}")
+    print(f"Entradas: {totals['entradas'][dash_ref]:.2f} | Saídas: {totals['saidas'][dash_ref]:.2f} | Saldo Líquido: {totals['saldo_liquido'][dash_ref]:.2f}")
+    print(f"Cartão Obra (mês em foco, via Fluxo_Apto_Realizado linha 55): {cartao_obra_mensal[dash_ref]:.2f}")
+    print(f"Moradia paga por Gabi (só Saúde, mês em foco): {totals['moradia_gabi'][dash_ref]:.2f}")
+    print(f"Saldo Acumulado projetado ({months[dash_ref]}): {saldo_acumulado[dash_ref]:.2f}")
+    print(f"Janela de pagamento {janela_pagamento['mes']}: {len(janela_pagamento['itens'])} itens, total {janela_pagamento['total']:.2f}")
     for g in gastos_por_natureza:
         print(f"  Gastos {g['natureza']}: {g['total']:.2f} ({g['pct']:.1f}%)")
     print(f"Pagamentos -> Pago total: {pagamentos['pago_total']:.2f} | Pix pendente: {pagamentos['pix_pendente']:.2f} | Cartão futuro: {pagamentos['cartao_futuro']:.2f}")
