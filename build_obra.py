@@ -7,7 +7,7 @@ OUT_TAB = "Obra_Consolidado"
 
 HEADER_ROW = 3       # row with "Itens", "Modalidade", ... labels
 FIRST_ITEM_ROW = 4
-LAST_ITEM_ROW = 48
+LAST_ITEM_ROW = 80  # limite superior generoso — o fim real é achado dinamicamente (primeira linha com "Itens" vazio), pra não truncar quando linhas são inseridas na aba
 MONTH_COL_START = "J"
 MONTH_COL_END = "V"
 COL_ITENS, COL_MODALIDADE, COL_CLASSIFICACAO, COL_TIPO, COL_EMPRESA = "B", "C", "D", "E", "F"

@@ -77,7 +77,7 @@
   }));
   kpiRow.appendChild(kpiTile({
     label: 'Saídas do mês', value: moneySpan(despesasMes),
-    foot: `Fixos + variáveis (com obra) · Saúde (${fmt0(data.moradia_gabi[REF])}) paga pela Gabi`,
+    foot: 'Fixos + variáveis (com obra)',
   }));
   kpiRow.appendChild(kpiTile({
     label: 'Saldo líquido do mês', value: moneySpan(resultadoMes),
@@ -140,8 +140,8 @@
       groups.push({ hit, i });
 
       if (N <= 14) {
-        const lbl = el('text', { x: x(i), y: H - MB + 16, 'text-anchor': 'middle', class: 'axis-label' });
-        lbl.textContent = monthShort(data.months[i]).replace('/2', '/');
+        const lbl = el('text', { x: x(i), y: H - MB + 16, 'text-anchor': 'middle', class: 'axis-label', 'font-size': 9.5 });
+        lbl.textContent = monthShort(data.months[i]);
         svg.appendChild(lbl);
       }
     }
@@ -603,7 +603,7 @@
     });
   })();
 
-  // ---------- janela de pagamento (mês em foco) ----------
+  // ---------- janela de pagamento (mês em foco) — agrupada por Pix / Cartão ----------
   (function () {
     const jp = data.janela_pagamento;
     if (!jp) return;
@@ -615,7 +615,8 @@
     const statusClass = { PAGO: 'pago', PENDENTE: 'pendente', FUTURO: 'futuro' };
     const statusLabel = { PAGO: 'Pago', PENDENTE: 'Pendente', FUTURO: 'Futuro' };
     const tbody = document.getElementById('janela-table-body');
-    jp.itens.forEach((it) => {
+
+    function addItemRow(it) {
       const tr = document.createElement('tr');
       tr.className = 'row-line';
       tr.innerHTML = `
@@ -626,9 +627,35 @@
         <td><span class="status-badge ${statusClass[it.status] || 'futuro'}">${statusLabel[it.status] || it.status}</span></td>
       `;
       tbody.appendChild(tr);
-    });
+    }
+    function addSubtotalRow(label, total) {
+      const tr = document.createElement('tr');
+      tr.className = 'row-subtotal';
+      tr.innerHTML = `<td colspan="3">${label}</td><td class="num">${fmt0(-total)}</td><td></td>`;
+      tbody.appendChild(tr);
+    }
+
+    const pix = jp.itens.filter((it) => it.modalidade.toLowerCase() === 'pix');
+    const cartao = jp.itens.filter((it) => it.modalidade.toLowerCase() === 'cartão');
+    const outros = jp.itens.filter((it) => !['pix', 'cartão'].includes(it.modalidade.toLowerCase()));
+
+    if (pix.length) {
+      pix.forEach(addItemRow);
+      addSubtotalRow('Subtotal Pix', pix.reduce((s, it) => s + it.valor, 0));
+    }
+    if (cartao.length) {
+      cartao.forEach(addItemRow);
+      addSubtotalRow('Subtotal Cartão', cartao.reduce((s, it) => s + it.valor, 0));
+    }
+    outros.forEach(addItemRow);
+
     if (jp.itens.length === 0) {
       tbody.innerHTML = '<tr><td colspan="5" class="foot">Nenhum item lançado neste mês.</td></tr>';
+    } else {
+      const totalTr = document.createElement('tr');
+      totalTr.className = 'row-total';
+      totalTr.innerHTML = `<td colspan="3">Total (Pix + Cartão)</td><td class="num">${fmt0(-jp.total)}</td><td></td>`;
+      tbody.appendChild(totalTr);
     }
   })();
 
