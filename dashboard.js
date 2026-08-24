@@ -635,6 +635,23 @@
     const statusLabel = { PAGO: 'Pago', PENDENTE: 'Pendente', FUTURO: 'Futuro' };
     const tbody = document.getElementById('janela-table-body');
 
+    // Resumo (tiles) sempre visível, igual à DRE Resumida — o detalhamento item a item
+    // fica escondido atrás do <details>, só abre quando o usuário quer conferir.
+    const pixSubtotal = jp.itens.filter((it) => it.modalidade.toLowerCase() === 'pix').reduce((s, it) => s + it.valor, 0);
+    const cartaoSubtotal = jp.itens.filter((it) => it.modalidade.toLowerCase() === 'cartão').reduce((s, it) => s + it.valor, 0);
+    const tiles = document.getElementById('janela-tiles');
+    [
+      ['Subtotal Pix', pixSubtotal],
+      ['Subtotal Cartão', cartaoSubtotal],
+      ['Total (Pix + Cartão)', jp.total],
+    ].forEach(([label, val]) => {
+      const el = document.createElement('div');
+      el.className = 'stat-tile';
+      el.innerHTML = `<div class="label">${label}</div><div class="value">${fmt0(-val)}</div>`;
+      tiles.appendChild(el);
+    });
+    document.getElementById('janela-detail-summary').textContent = `Ver detalhamento (${jp.itens.length} itens)`;
+
     function addItemRow(it) {
       const tr = document.createElement('tr');
       tr.className = 'row-line';

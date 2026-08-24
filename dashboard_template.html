@@ -300,12 +300,16 @@ table.detail-table tr.row-total td { font-weight: 600; border-top: 1px solid var
     <h2 id="janela-title">—</h2>
     <div class="panel-sub" id="janela-sub">—</div>
     <div class="big-total" id="janela-total">—</div>
-    <div class="wide-scroll">
-      <table class="detail-table">
-        <thead><tr><th>Item</th><th>Classificação</th><th>Modalidade</th><th class="num">Valor</th><th>Data</th><th>Status</th></tr></thead>
-        <tbody id="janela-table-body"></tbody>
-      </table>
-    </div>
+    <div class="stat-tiles" id="janela-tiles"></div>
+    <details class="detail-toggle">
+      <summary id="janela-detail-summary">Ver detalhamento</summary>
+      <div class="wide-scroll">
+        <table class="detail-table">
+          <thead><tr><th>Item</th><th>Classificação</th><th>Modalidade</th><th class="num">Valor</th><th>Data</th><th>Status</th></tr></thead>
+          <tbody id="janela-table-body"></tbody>
+        </table>
+      </div>
+    </details>
   </section>
 
   <section class="panel">
