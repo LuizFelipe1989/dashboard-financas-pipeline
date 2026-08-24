@@ -300,15 +300,25 @@
     document.getElementById('financiamento-sub').textContent =
       `${fmt0(f.investimento_bloqueado_total)} disponíveis hoje · projeção em ${monthShort(data.months[jul27])}: ${fmt0(f.saldo_investimento[jul27])}`;
 
+    // Ponte histórica: um ponto "Início" com a posição bruta do fundo antes de ser
+    // consumido pela obra (~R$144k em jul./26), antes da série modelada (que já parte
+    // do saldo atual, ~R$73,7k). Não há granularidade mensal real entre os dois — é
+    // um único segmento ilustrando "o fundo caiu de X pra Y ajudado pelo salário",
+    // não uma projeção mês a mês. Array local (labels + série) só pra este gráfico,
+    // não mexe no N/data.months compartilhado pelos outros gráficos.
+    const localLabels = ['Início', ...data.months];
+    const series = [f.posicao_inicial, ...f.saldo_investimento];
+    const localN = series.length;
+    const localJul27 = jul27 + 1;
+
     const W = 340, H = 220, ML = 46, MR = 10, MT = 14, MB = 26;
     const plotW = W - ML - MR, plotH = H - MT - MB;
-    const series = f.saldo_investimento;
     const allV = series.concat([0, f.investimento_bloqueado_total]);
     let vmin = Math.min(...allV), vmax = Math.max(...allV);
     const pad = (vmax - vmin) * 0.12 || 1000;
     vmin -= pad; vmax += pad;
     const y = (v) => MT + (vmax - v) / (vmax - vmin) * plotH;
-    const slotW = plotW / N;
+    const slotW = plotW / localN;
     const x = (i) => ML + slotW * i + slotW / 2;
 
     const ns = 'http://www.w3.org/2000/svg';
@@ -327,23 +337,26 @@
     }
 
     let dLine = '';
-    for (let i = 0; i < N; i++) dLine += (i === 0 ? 'M' : 'L') + x(i) + ',' + y(series[i]) + ' ';
-    const dArea = dLine + `L${x(N - 1)},${y(0)} L${x(0)},${y(0)} Z`;
+    for (let i = 0; i < localN; i++) dLine += (i === 0 ? 'M' : 'L') + x(i) + ',' + y(series[i]) + ' ';
+    const dArea = dLine + `L${x(localN - 1)},${y(0)} L${x(0)},${y(0)} Z`;
     svg.appendChild(el('path', { d: dArea, fill: 'var(--accent-soft)', stroke: 'none' }));
-    svg.appendChild(el('path', { d: dLine, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2 }));
+    // segmento histórico (Início -> primeiro mês real) tracejado, pra deixar claro que
+    // é uma ponte ilustrativa e não dado mensal real
+    svg.appendChild(el('path', { d: `M${x(0)},${y(series[0])} L${x(1)},${y(series[1])}`, fill: 'none', stroke: 'var(--ink-muted)', 'stroke-width': 2, 'stroke-dasharray': '4 3' }));
+    svg.appendChild(el('path', { d: dLine.replace(/^M[^L]*L/, 'M') , fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2 }));
 
     // marca o mês de Jul/27 pedido explicitamente
-    svg.appendChild(el('line', { x1: x(jul27), x2: x(jul27), y1: MT, y2: MT + plotH, class: 'ref-line' }));
+    svg.appendChild(el('line', { x1: x(localJul27), x2: x(localJul27), y1: MT, y2: MT + plotH, class: 'ref-line' }));
 
     const tooltip = document.getElementById('financiamento-tooltip');
     const wrap = svg.parentElement;
-    for (let i = 0; i < N; i++) {
-      const isMarked = i === jul27 || i === N - 1;
+    for (let i = 0; i < localN; i++) {
+      const isMarked = i === 0 || i === localJul27 || i === localN - 1;
       const r = isMarked ? 4.5 : 2;
       svg.appendChild(el('circle', { cx: x(i), cy: y(series[i]), r, fill: series[i] < 0 ? 'var(--critical)' : 'var(--accent)' }));
-      if (i % 2 === 0) {
+      if (i === 0 || i % 2 === 1) {
         const lbl = el('text', { x: x(i), y: H - MB + 14, 'text-anchor': 'middle', class: 'axis-label' });
-        lbl.textContent = monthShort(data.months[i]).split('/')[0];
+        lbl.textContent = i === 0 ? 'Início' : monthShort(data.months[i - 1]).split('/')[0];
         svg.appendChild(lbl);
       }
       const hit = el('rect', { x: ML + slotW * i, y: MT, width: slotW, height: plotH, fill: 'transparent' });
@@ -355,16 +368,21 @@
         if (left > rect.width - 170) left = ev.clientX - rect.left - 170;
         tooltip.style.left = left + 'px';
         tooltip.style.top = (ev.clientY - rect.top - 54) + 'px';
-        tooltip.innerHTML = `
-          <div class="t-month">${monthShort(data.months[i])}</div>
+        tooltip.innerHTML = i === 0
+          ? `
+          <div class="t-month">Início (${monthShort(f.posicao_inicial_mes || data.months[0])})</div>
+          <div class="t-row"><span>Posição inicial do fundo</span>${moneySpan(series[0])}</div>
+          `
+          : `
+          <div class="t-month">${monthShort(data.months[i - 1])}</div>
           <div class="t-row"><span>Saldo do investimento</span>${moneySpan(series[i])}</div>
-          <div class="t-row"><span>Saque no mês</span>${moneySpan(-f.saque_mensal[i])}</div>
+          <div class="t-row"><span>Saque no mês</span>${moneySpan(-f.saque_mensal[i - 1])}</div>
         `;
       });
       hit.addEventListener('mouseleave', () => { tooltip.style.opacity = 0; });
     }
-    const jul27Lbl = el('text', { x: x(jul27), y: y(series[jul27]) + (series[jul27] < 0 ? 16 : -10), 'text-anchor': 'middle', fill: series[jul27] < 0 ? 'var(--critical)' : 'var(--accent)', 'font-weight': 600, 'font-size': 11 });
-    jul27Lbl.textContent = fmt0(series[jul27]);
+    const jul27Lbl = el('text', { x: x(localJul27), y: y(series[localJul27]) + (series[localJul27] < 0 ? 16 : -10), 'text-anchor': 'middle', fill: series[localJul27] < 0 ? 'var(--critical)' : 'var(--accent)', 'font-weight': 600, 'font-size': 11 });
+    jul27Lbl.textContent = fmt0(series[localJul27]);
     svg.appendChild(jul27Lbl);
   })();
 
@@ -667,7 +685,7 @@
     <div><b>Janela de pagamento</b> lista os itens da Obra (Fluxo_Apto_Realizado) com valor lançado no mês em foco. Pix usa a tabela "Janela de Pagamentos" com datas reais quando ela existe pro mês (senão cai para o mês inteiro, por cor de célula); Cartão sempre por cor de célula — só dá o mês, a parcela específica não tem dia marcado.</div>
     <div><b>Apto Saúde</b> devolvido em ago./26 — a partir de set./26 restou só o Cartão Crédito Casa, projetado mês a mês pelas parcelas pendentes em Despesas_Casa (aba própria); as demais linhas (aluguel/condomínio/Enel/internet) zeram. Informativo, paga a Gabi, não entra nas saídas.</div>
     <div><b>Cartão Obra</b> usa o valor mensal já projetado em Fluxo_Apto_Realizado (linha 55 — Cartão); a Margem Líquida da DRE Resumida separa esse custo (Custo Obra) por ter prazo pra terminar — a versão que inclui a obra continua na tabela de detalhamento.</div>
-    <div><b>Financiamento da obra</b>: o salário líquido (livre de custos fixos, que a Gabriela assume 100%) paga primeiro o cartão da obra; o fundo (${fmt0(data.financiamento_obra.investimento_bloqueado_total)} hoje) cobre só o Pix inteiro mais a parte do cartão que sobrar do salário — a partir do mês seguinte ao de referência. Quando o fundo esgota, o restante passa a sair do caixa corrente — projeção até ${monthShort(data.months[N - 1])}.</div>
+    <div><b>Financiamento da obra</b>: o salário líquido (livre de custos fixos, que a Gabriela assume 100%) paga primeiro o cartão da obra; o fundo (${fmt0(data.financiamento_obra.investimento_bloqueado_total)} hoje) cobre só o Pix inteiro mais a parte do cartão que sobrar do salário — a partir do mês seguinte ao de referência. Quando o fundo esgota, o restante passa a sair do caixa corrente — projeção até ${monthShort(data.months[N - 1])}. O ponto "Início" no gráfico é a posição bruta do fundo antes da obra consumi-lo (${fmt0(data.financiamento_obra.posicao_inicial)} em ${monthShort(data.financiamento_obra.posicao_inicial_mes)}) — a linha tracejada até o primeiro mês é uma ponte ilustrativa (sem dado mensal real no meio), não projeção.</div>
     <div><b>Cartão pessoal</b> detalhado a partir de ${data.n_itens_cartao_pessoal} itens de Contas!Cartão Pessoal; ${data.n_itens_obra_cartao} itens marcados "Obra Apto" aparecem em Gastos por Tipo mas o valor mensal de obra usado na DRE vem de Fluxo_Apto_Realizado, não deste cadastro.</div>
     <div>Fonte: planilha Google Sheets FL_2024 — abas DRE_Mensal, Obra_Consolidado, Fluxo_Caixa, Gastos_Por_Tipo e Despesas_Casa. Regenerar com <code>daily_update.py</code>.</div>
   `;

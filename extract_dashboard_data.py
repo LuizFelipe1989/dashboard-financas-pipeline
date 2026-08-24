@@ -90,6 +90,12 @@ def main():
     despesas_casa_ws = sh.worksheet(DESPESAS_CASA_TAB)
     months, proj_data = load_projecao(proj_ws)
     apply_despesas_casa_handover(months, proj_data, despesas_casa_ws)
+    # Captura o lançamento bruto de 'Investimentos' (posição inicial do fundo da obra,
+    # ~R$144k em jul./26) antes de zerá-lo — usado só como ponto histórico no gráfico
+    # de Financiamento da Obra, não entra em nenhum total da DRE.
+    raw_investimentos = list(proj_data.get("Investimentos", []))
+    investimento_posicao_inicial = next((abs(v) for v in raw_investimentos if v), 0.0)
+    investimento_mes_inicial_idx = next((i for i, v in enumerate(raw_investimentos) if v), 0)
     neutralize_investimentos_row(proj_data)
     n = len(months)
     ref = REF_MONTH_INDEX
@@ -298,6 +304,8 @@ def main():
             "investimento_bloqueado_total": fin["investimento_bloqueado_total"],
             "saque_mensal": fin["saque_mensal"],
             "saldo_investimento": fin["saldo_investimento"],
+            "posicao_inicial": investimento_posicao_inicial,
+            "posicao_inicial_mes": months[investimento_mes_inicial_idx],
         },
         "n_itens_cartao_pessoal": personal_n,
         "n_itens_obra_cartao": obra_card_n,
@@ -318,7 +326,7 @@ def main():
     for g in gastos_por_natureza:
         print(f"  Gastos {g['natureza']}: {g['total']:.2f} ({g['pct']:.1f}%)")
     print(f"Pagamentos -> Pago total: {pagamentos['pago_total']:.2f} | Pix pendente (total previsto): {pagamentos['pix_pendente_total']:.2f} | Cartão futuro: {pagamentos['cartao_futuro']:.2f}")
-    print(f"Financiamento obra: saldo em {months[jul27_idx]}: {fin['saldo_investimento'][jul27_idx]:.2f} (partindo de {fin['investimento_bloqueado_total']:.2f})")
+    print(f"Financiamento obra: saldo em {months[jul27_idx]}: {fin['saldo_investimento'][jul27_idx]:.2f} (partindo de {fin['investimento_bloqueado_total']:.2f}, posição inicial {months[investimento_mes_inicial_idx]}: {investimento_posicao_inicial:.2f})")
     print(f"Saldo Acumulado final ({months[-1]}): {saldo_acumulado[-1]:.2f}")
     print(f"[double-check] Saldo Acumulado + Saldo Investimento (último mês): {(saldo_acumulado[-1] + fin['saldo_investimento'][-1]):.2f}")
     print(f"Alertas gerados: {len(alerts)}")
