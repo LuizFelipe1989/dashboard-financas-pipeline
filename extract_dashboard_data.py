@@ -249,6 +249,14 @@ def main():
         ]
         pix_fonte = "cor"
 
+    # "Pix pendente a realizar" (tile da Obra) precisa bater com a Janela de Pagamento:
+    # pendente (rosa, já reconhecido como em aberto) + o que a janela manual mais recente
+    # ainda lista pra sair (mesma fonte usada no quadro Janela de Pagamento acima) — sem
+    # essa soma, o tile mostrava só o pendente rosa e ficava bem abaixo do que a janela
+    # já deixa claro que falta pagar.
+    pix_janela_total = janela_pix_manual["total"] if janela_pix_manual is not None else pagamentos["pix_futuro"]
+    pagamentos["pix_pendente_total"] = pagamentos["pix_pendente"] + pix_janela_total
+
     janela_pagamento = {
         "mes": months[dash_ref],
         "pix_fonte": pix_fonte,
