@@ -312,6 +312,22 @@ SALDO_DISPONIVEL_IMEDIATO = 25371.41
 # dado em garantia do limite do cartão da obra) é lido da planilha a cada rodada.
 INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76
 
+# Itens de VARIAVEL que a Gabriela também assume 100% (a lista original dela mistura
+# custos fixos com essas 4 linhas variáveis) — usado só pra saber quanto do salário do
+# Luiz sobra livre pra pagar o cartão da obra em compute_financiamento_obra; não afeta
+# o resto do dashboard (DRE, Fluxo de Caixa), que continua na base "Luiz sozinho".
+GABI_APOIO_VARIAVEL = ["Diarista", "Supermercado", "Farmácia Maria", "Pediatra Maria"]
+
+
+def variavel_disponivel_para_obra(data, totals, n):
+    """totals['variavel'] menos os itens que a Gabriela cobre — o que realmente compete
+    com a parcela do cartão da obra pelo salário do Luiz."""
+    gabi_var = [0.0] * n
+    for label in GABI_APOIO_VARIAVEL:
+        vals = data.get(label, [0.0] * n)
+        gabi_var = [a + b for a, b in zip(gabi_var, vals)]
+    return [v - g for v, g in zip(totals["variavel"], gabi_var)]
+
 
 def compute_financiamento_obra(months, receita_liquida, variavel_pessoal, cartao_obra_mensal, obra_pix_mensal,
                                 ref_month_index=REF_MONTH_INDEX,

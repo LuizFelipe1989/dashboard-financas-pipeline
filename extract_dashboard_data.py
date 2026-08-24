@@ -5,7 +5,7 @@ from finlib import (
     get_clients, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, DESPESAS_CASA_TAB, REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals, fmt_brl,
     apply_despesas_casa_handover, neutralize_investimentos_row, compute_financiamento_obra,
-    _MES_ABREV_PARA_NOME,
+    variavel_disponivel_para_obra, _MES_ABREV_PARA_NOME,
 )
 from build_dre import build_rows
 from build_obra import load_items_and_colors, load_month_window, load_janela_pix_manual, payment_summary, SRC_TAB as OBRA_TAB
@@ -119,8 +119,9 @@ def main():
     # inicial do fundo (~R$144k) foi consumido ao longo de 2026; usa-se o saldo atual da
     # aba Investimentos como ponto de partida da projeção, não mais um valor fixo no código.
     fin_kwargs = {"investimento_total": fundo_obra_balance} if fundo_obra_balance is not None else {}
+    variavel_obra_calc = variavel_disponivel_para_obra(proj_data, totals, n)
     fin = compute_financiamento_obra(
-        months, totals["receita_liquida"], totals["variavel"], cartao_obra_mensal, totals["obra_pix"], **fin_kwargs
+        months, totals["receita_liquida"], variavel_obra_calc, cartao_obra_mensal, totals["obra_pix"], **fin_kwargs
     )
     saldo_mes = [sl + inv + sq for sl, inv, sq in zip(totals["saldo_liquido"], totals["investimentos"], fin["saque_mensal"])]
     raw_cum = []
@@ -316,7 +317,7 @@ def main():
     print(f"Janela de pagamento {janela_pagamento['mes']}: {len(janela_pagamento['itens'])} itens, total {janela_pagamento['total']:.2f}")
     for g in gastos_por_natureza:
         print(f"  Gastos {g['natureza']}: {g['total']:.2f} ({g['pct']:.1f}%)")
-    print(f"Pagamentos -> Pago total: {pagamentos['pago_total']:.2f} | Pix pendente: {pagamentos['pix_pendente']:.2f} | Cartão futuro: {pagamentos['cartao_futuro']:.2f}")
+    print(f"Pagamentos -> Pago total: {pagamentos['pago_total']:.2f} | Pix pendente (total previsto): {pagamentos['pix_pendente_total']:.2f} | Cartão futuro: {pagamentos['cartao_futuro']:.2f}")
     print(f"Financiamento obra: saldo em {months[jul27_idx]}: {fin['saldo_investimento'][jul27_idx]:.2f} (partindo de {fin['investimento_bloqueado_total']:.2f})")
     print(f"Saldo Acumulado final ({months[-1]}): {saldo_acumulado[-1]:.2f}")
     print(f"[double-check] Saldo Acumulado + Saldo Investimento (último mês): {(saldo_acumulado[-1] + fin['saldo_investimento'][-1]):.2f}")

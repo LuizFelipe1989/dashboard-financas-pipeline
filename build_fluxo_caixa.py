@@ -1,7 +1,8 @@
 from finlib import (
     get_clients, fmt_brl, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, DESPESAS_CASA_TAB, REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals,
-    apply_despesas_casa_handover, neutralize_investimentos_row, compute_financiamento_obra, red_negative_rule,
+    apply_despesas_casa_handover, neutralize_investimentos_row, compute_financiamento_obra,
+    variavel_disponivel_para_obra, red_negative_rule,
 )
 from build_investimentos import load_investimentos, get_fundo_obra_balance, SRC_TAB as INVEST_TAB
 
@@ -28,8 +29,9 @@ def main():
     invest_categorias, _invest_total = load_investimentos(sh.worksheet(INVEST_TAB))
     fundo_obra_balance = get_fundo_obra_balance(invest_categorias)
     fin_kwargs = {"investimento_total": fundo_obra_balance} if fundo_obra_balance is not None else {}
+    variavel_obra_calc = variavel_disponivel_para_obra(proj_data, totals, n)
     fin = compute_financiamento_obra(
-        months, totals["receita_liquida"], totals["variavel"], cartao_obra_mensal, totals["obra_pix"], **fin_kwargs
+        months, totals["receita_liquida"], variavel_obra_calc, cartao_obra_mensal, totals["obra_pix"], **fin_kwargs
     )
 
     # Fluxo de caixa parte diretamente da DRE: Entradas − Saídas = Saldo Líquido.

@@ -171,10 +171,17 @@ def payment_summary(items):
     cartao_pendente = sum(i["pendente"] for i in items if i["modalidade"].strip().lower() == "cartão")
     cartao_futuro = sum(i["futuro"] for i in items if i["modalidade"].strip().lower() == "cartão")
     pix_futuro = sum(i["futuro"] for i in items if i["modalidade"].strip().lower() == "pix")
+    # Previsto total do Pix ainda não pago (pendente + futuro juntos) — ao abrir o mês
+    # com a janela de pagamentos montada, tudo que não foi pago ainda é "a pagar",
+    # não só o que já está marcado como pendente (cor) neste momento.
+    pix_previsto = sum(i["previsto"] for i in items if i["modalidade"].strip().lower() == "pix")
+    pix_pago = sum(i["pago"] for i in items if i["modalidade"].strip().lower() == "pix")
+    pix_pendente_total = pix_previsto - pix_pago
     return {
         "pago_total": pago_total,
         "pendente_total": pendente_total,
         "pix_pendente": pix_pendente,
+        "pix_pendente_total": pix_pendente_total,
         "cartao_pendente": cartao_pendente,
         "cartao_futuro": cartao_futuro,
         "pix_futuro": pix_futuro,

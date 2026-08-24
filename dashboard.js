@@ -378,7 +378,7 @@
     const tiles = document.getElementById('pagamentos-tiles');
     [
       ['Pago até agora (Pix + Cartão)', p.pago_total],
-      ['Pix pendente a realizar', p.pix_pendente],
+      ['Pix pendente a realizar', p.pix_pendente_total],
       ['Cartão a vencer (parcelas futuras)', p.cartao_futuro],
     ].forEach(([label, val]) => {
       const el = document.createElement('div');
