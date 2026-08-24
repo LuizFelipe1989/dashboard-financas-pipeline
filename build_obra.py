@@ -124,6 +124,43 @@ def load_month_window(sh, sheets_api, ws, month_label):
     return window
 
 
+JANELA_MANUAL_COL_ITEM = 34   # AI
+JANELA_MANUAL_COL_VALOR = 35  # AJ
+JANELA_MANUAL_COL_DATA = 36   # AK
+
+
+def load_janela_pix_manual(ws):
+    """Lê a tabela 'Janela de Pagamentos {Mês}{Ano}' que o usuário monta manualmente em
+    Fluxo_Apto_Realizado (colunas AI:AK — Item | R$ | Data), com datas reais de saída
+    pro Pix da obra do mês — mais precisa que a classificação por cor, que só dá o mês,
+    não o dia. Acha o cabeçalho dinamicamente (busca 'Janela de Pagamentos' na coluna
+    AI) pra não quebrar quando o usuário reconstrói a tabela pro mês seguinte."""
+    values = ws.get_all_values()
+    header_row_idx = None
+    for i, row in enumerate(values):
+        cell = row[JANELA_MANUAL_COL_ITEM] if len(row) > JANELA_MANUAL_COL_ITEM else ""
+        if cell.strip().lower().startswith("janela de pagamentos"):
+            header_row_idx = i
+            break
+    if header_row_idx is None:
+        return None
+
+    titulo = values[header_row_idx][JANELA_MANUAL_COL_ITEM].strip()
+    itens = []
+    r = header_row_idx + 1
+    while r < len(values):
+        row = values[r]
+        nome = row[JANELA_MANUAL_COL_ITEM].strip() if len(row) > JANELA_MANUAL_COL_ITEM else ""
+        if not nome or nome.strip().upper() == "TOTAL":
+            break
+        valor = br_to_float(row[JANELA_MANUAL_COL_VALOR]) if len(row) > JANELA_MANUAL_COL_VALOR else 0.0
+        data = row[JANELA_MANUAL_COL_DATA].strip() if len(row) > JANELA_MANUAL_COL_DATA else ""
+        itens.append({"item": nome, "valor": abs(valor), "data": data})
+        r += 1
+    itens.sort(key=lambda it: it["data"] or "99/99")
+    return {"titulo": titulo, "itens": itens, "total": sum(it["valor"] for it in itens)}
+
+
 def payment_summary(items):
     """Cross-tab pago/pendente/futuro by Modalidade (Pix vs Cartão) — answers:
     quanto já foi pago (Pix+Cartão), quanto falta em Pix pendente, e quanto ainda

@@ -8,7 +8,7 @@ from finlib import (
     _MES_ABREV_PARA_NOME,
 )
 from build_dre import build_rows
-from build_obra import load_items_and_colors, load_month_window, payment_summary, SRC_TAB as OBRA_TAB
+from build_obra import load_items_and_colors, load_month_window, load_janela_pix_manual, payment_summary, SRC_TAB as OBRA_TAB
 from build_gastos_tipo import group_by_natureza, NATUREZA_ORDEM
 from build_investimentos import (
     load_investimentos, ensure_live_quotes, get_fundo_obra_balance,
@@ -119,7 +119,9 @@ def main():
     # inicial do fundo (~R$144k) foi consumido ao longo de 2026; usa-se o saldo atual da
     # aba Investimentos como ponto de partida da projeção, não mais um valor fixo no código.
     fin_kwargs = {"investimento_total": fundo_obra_balance} if fundo_obra_balance is not None else {}
-    fin = compute_financiamento_obra(months, totals["variavel_obra"], **fin_kwargs)
+    fin = compute_financiamento_obra(
+        months, totals["receita_liquida"], totals["variavel"], cartao_obra_mensal, totals["obra_pix"], **fin_kwargs
+    )
     saldo_mes = [sl + inv + sq for sl, inv, sq in zip(totals["saldo_liquido"], totals["investimentos"], fin["saque_mensal"])]
     raw_cum = []
     running = 0.0
@@ -211,14 +213,39 @@ def main():
         "por_classificacao": class_rollup,
     }
 
-    # ---- Janela de pagamento do mês em foco: itens (Fluxo_Apto_Realizado) com valor
-    # lançado especificamente nesse mês, com status — quadro separado, não é o
-    # agregado da Obra, é a visão linha a linha do que é esperado sair.
+    # ---- Janela de pagamento do mês em foco: quadro separado com o que é esperado
+    # sair nesse mês. Cartão vem da classificação por cor (só dá o mês, não o dia).
+    # Pix vem da tabela manual "Janela de Pagamentos {Mês}{Ano}" (colunas AI:AK) que o
+    # usuário monta com datas reais — mais precisa; cai de volta pra classificação por
+    # cor se essa tabela não existir ainda pro mês em foco.
     mes_abrev = months[dash_ref].split("./")[0].strip().lower()
     mes_nome = _MES_ABREV_PARA_NOME.get(mes_abrev, "").capitalize()
+    month_window = load_month_window(sh, sheets_api, obra_ws, mes_nome)
+    cartao_itens = [
+        {"item": it["item"], "classificacao": it["classificacao"], "modalidade": it["modalidade"],
+         "valor": it["valor"], "status": it["status"], "data": ""}
+        for it in month_window if it["modalidade"].strip().lower() == "cartão"
+    ]
+    janela_pix_manual = load_janela_pix_manual(obra_ws)
+    if janela_pix_manual is not None:
+        pix_itens = [
+            {"item": it["item"], "classificacao": "", "modalidade": "Pix", "valor": it["valor"],
+             "status": "PENDENTE", "data": it["data"]}
+            for it in janela_pix_manual["itens"]
+        ]
+        pix_fonte = "manual"
+    else:
+        pix_itens = [
+            {"item": it["item"], "classificacao": it["classificacao"], "modalidade": it["modalidade"],
+             "valor": it["valor"], "status": it["status"], "data": ""}
+            for it in month_window if it["modalidade"].strip().lower() == "pix"
+        ]
+        pix_fonte = "cor"
+
     janela_pagamento = {
         "mes": months[dash_ref],
-        "itens": load_month_window(sh, sheets_api, obra_ws, mes_nome),
+        "pix_fonte": pix_fonte,
+        "itens": pix_itens + cartao_itens,
     }
     janela_pagamento["total"] = sum(it["valor"] for it in janela_pagamento["itens"])
 

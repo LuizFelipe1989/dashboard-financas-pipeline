@@ -313,26 +313,37 @@ SALDO_DISPONIVEL_IMEDIATO = 25371.41
 INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76
 
 
-def compute_financiamento_obra(months, variavel_obra_mensal, ref_month_index=REF_MONTH_INDEX,
+def compute_financiamento_obra(months, receita_liquida, variavel_pessoal, cartao_obra_mensal, obra_pix_mensal,
+                                ref_month_index=REF_MONTH_INDEX,
                                 saldo_disponivel=SALDO_DISPONIVEL_IMEDIATO, investimento_total=INVESTIMENTO_BLOQUEADO_TOTAL):
-    """O fundo (Fundos de Investimento) paga o custo da obra inteiro — Pix + Cartão,
-    não só a parte do cartão que excede o salário — mês a mês, a partir do mês SEGUINTE
-    ao de referência: o saldo atual do fundo já é a posição depois dos pagamentos feitos
-    até o mês de referência (inclusive), então esse mês não é descontado de novo aqui.
-    Quando o fundo não dá mais conta do custo do mês, o que sobra é o que efetivamente
-    sai do caixa corrente — 'saque_mensal' é quanto o fundo cobriu (somado de volta no
-    Fluxo de Caixa, já que essa parte não sai do bolso); a diferença não coberta segue
-    contando como saída normal, sem precisar de um campo à parte."""
+    """Cada mês (a partir do mês SEGUINTE ao de referência — o saldo atual do fundo já
+    reflete os pagamentos até o mês de referência inclusive), o salário líquido cobre
+    primeiro as despesas variáveis pessoais (custos fixos ficam de fora dessa conta —
+    Gabriela assume 100% deles); o que sobra do salário paga o cartão da obra, que é
+    pago majoritariamente por ele — a parte do bloqueio referente a isso vai sendo
+    liberada. O fundo só cobre o que falta: o Pix da obra inteiro, mais qualquer parte
+    do cartão que o salário não deu conta. Isso faz o fundo durar bem mais do que
+    cobrindo o custo total (Pix+Cartão) sozinho, sem considerar a entrada de salário.
+    'saque_mensal' é quanto o fundo cobriu (somado de volta no Fluxo de Caixa, já que
+    essa parte não sai do bolso); o resto da parcela do cartão paga pelo próprio
+    salário já está refletido no fluxo normal (entra como receita, sai como despesa),
+    sem precisar de tratamento especial aqui."""
     n = len(months)
     saque_mensal = [0.0] * n
     saldo_investimento = [investimento_total] * n
     running = investimento_total
     for i in range(n):
         if i > ref_month_index:
-            custo = abs(variavel_obra_mensal[i])
-            cobre = min(custo, max(running, 0.0))
-            running -= cobre
-            saque_mensal[i] = cobre
+            salario_disponivel = max(receita_liquida[i] - abs(variavel_pessoal[i]), 0.0)
+            cartao = abs(cartao_obra_mensal[i])
+            pix = abs(obra_pix_mensal[i])
+            pago_cartao_salario = min(salario_disponivel, cartao)
+            cartao_faltante = cartao - pago_cartao_salario
+            sobra_salario = salario_disponivel - pago_cartao_salario
+            necessidade = max(pix + cartao_faltante - sobra_salario, 0.0)
+            saque = min(necessidade, max(running, 0.0))
+            running -= saque
+            saque_mensal[i] = saque
         saldo_investimento[i] = running
     return {"saque_mensal": saque_mensal, "saldo_investimento": saldo_investimento,
             "saldo_disponivel_imediato": saldo_disponivel, "investimento_bloqueado_total": investimento_total}

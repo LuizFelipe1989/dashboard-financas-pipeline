@@ -28,7 +28,9 @@ def main():
     invest_categorias, _invest_total = load_investimentos(sh.worksheet(INVEST_TAB))
     fundo_obra_balance = get_fundo_obra_balance(invest_categorias)
     fin_kwargs = {"investimento_total": fundo_obra_balance} if fundo_obra_balance is not None else {}
-    fin = compute_financiamento_obra(months, totals["variavel_obra"], **fin_kwargs)
+    fin = compute_financiamento_obra(
+        months, totals["receita_liquida"], totals["variavel"], cartao_obra_mensal, totals["obra_pix"], **fin_kwargs
+    )
 
     # Fluxo de caixa parte diretamente da DRE: Entradas − Saídas = Saldo Líquido.
     # O valor coberto pelo investimento (fin.saque_mensal) é somado de volta —

@@ -292,7 +292,7 @@
     }
   })();
 
-  // ---------- Financiamento da obra: fundo cobre o custo total da obra (Pix+Cartão) ----------
+  // ---------- Financiamento da obra: salário paga o cartão primeiro, fundo cobre o resto ----------
   (function () {
     const svg = document.getElementById('financiamento-chart');
     const f = data.financiamento_obra;
@@ -608,8 +608,9 @@
     const jp = data.janela_pagamento;
     if (!jp) return;
     document.getElementById('janela-title').textContent = 'Janela de Pagamento — ' + monthShort(jp.mes);
+    const pixFonteTxt = jp.pix_fonte === 'manual' ? 'Pix com datas reais (planilha)' : 'Pix por cor de célula (sem data)';
     document.getElementById('janela-sub').textContent =
-      `Itens com valor lançado em ${monthShort(jp.mes)} — Fluxo_Apto_Realizado, coluna do mês · ${jp.itens.length} itens`;
+      `Itens com valor lançado em ${monthShort(jp.mes)} · ${pixFonteTxt} · Cartão por cor de célula · ${jp.itens.length} itens`;
     document.getElementById('janela-total').innerHTML = moneySpan(-jp.total);
 
     const statusClass = { PAGO: 'pago', PENDENTE: 'pendente', FUTURO: 'futuro' };
@@ -624,6 +625,7 @@
         <td>${it.classificacao}</td>
         <td>${it.modalidade}</td>
         <td class="num">${fmt0(-it.valor)}</td>
+        <td>${it.data || '—'}</td>
         <td><span class="status-badge ${statusClass[it.status] || 'futuro'}">${statusLabel[it.status] || it.status}</span></td>
       `;
       tbody.appendChild(tr);
@@ -631,7 +633,7 @@
     function addSubtotalRow(label, total) {
       const tr = document.createElement('tr');
       tr.className = 'row-subtotal';
-      tr.innerHTML = `<td colspan="3">${label}</td><td class="num">${fmt0(-total)}</td><td></td>`;
+      tr.innerHTML = `<td colspan="3">${label}</td><td class="num">${fmt0(-total)}</td><td colspan="2"></td>`;
       tbody.appendChild(tr);
     }
 
@@ -650,11 +652,11 @@
     outros.forEach(addItemRow);
 
     if (jp.itens.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="foot">Nenhum item lançado neste mês.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="foot">Nenhum item lançado neste mês.</td></tr>';
     } else {
       const totalTr = document.createElement('tr');
       totalTr.className = 'row-total';
-      totalTr.innerHTML = `<td colspan="3">Total (Pix + Cartão)</td><td class="num">${fmt0(-jp.total)}</td><td></td>`;
+      totalTr.innerHTML = `<td colspan="3">Total (Pix + Cartão)</td><td class="num">${fmt0(-jp.total)}</td><td colspan="2"></td>`;
       tbody.appendChild(totalTr);
     }
   })();
@@ -662,10 +664,10 @@
   // ---------- footnotes ----------
   document.getElementById('footnotes').innerHTML = `
     <div><b>Mês em foco</b> (indicadores, DRE Resumida, janela de pagamento, distribuição de parcelas de cartão): ${monthShort(data.months[REF])} — o próximo mês a acontecer. O saldo real conhecido é ancorado em ${monthShort(data.months[data.anchor_month_index])}, que já foi realizado.</div>
-    <div><b>Janela de pagamento</b> lista os itens da Obra (Fluxo_Apto_Realizado) com valor lançado no mês em foco, com status por cor de célula — não são datas exatas do dia, mas a granularidade que a planilha registra hoje.</div>
+    <div><b>Janela de pagamento</b> lista os itens da Obra (Fluxo_Apto_Realizado) com valor lançado no mês em foco. Pix usa a tabela "Janela de Pagamentos" com datas reais quando ela existe pro mês (senão cai para o mês inteiro, por cor de célula); Cartão sempre por cor de célula — só dá o mês, a parcela específica não tem dia marcado.</div>
     <div><b>Apto Saúde</b> devolvido em ago./26 — a partir de set./26 restou só o Cartão Crédito Casa, projetado mês a mês pelas parcelas pendentes em Despesas_Casa (aba própria); as demais linhas (aluguel/condomínio/Enel/internet) zeram. Informativo, paga a Gabi, não entra nas saídas.</div>
     <div><b>Cartão Obra</b> usa o valor mensal já projetado em Fluxo_Apto_Realizado (linha 55 — Cartão); a Margem Líquida da DRE Resumida separa esse custo (Custo Obra) por ter prazo pra terminar — a versão que inclui a obra continua na tabela de detalhamento.</div>
-    <div><b>Financiamento da obra</b>: o fundo (${fmt0(data.financiamento_obra.investimento_bloqueado_total)} hoje) paga o custo total da obra — Pix + Cartão — a partir do mês seguinte ao de referência (o saldo atual já reflete os pagamentos feitos até aqui); quando o fundo esgota, o restante passa a sair do caixa corrente — projeção até ${monthShort(data.months[N - 1])}.</div>
+    <div><b>Financiamento da obra</b>: o salário líquido (livre de custos fixos, que a Gabriela assume 100%) paga primeiro o cartão da obra; o fundo (${fmt0(data.financiamento_obra.investimento_bloqueado_total)} hoje) cobre só o Pix inteiro mais a parte do cartão que sobrar do salário — a partir do mês seguinte ao de referência. Quando o fundo esgota, o restante passa a sair do caixa corrente — projeção até ${monthShort(data.months[N - 1])}.</div>
     <div><b>Cartão pessoal</b> detalhado a partir de ${data.n_itens_cartao_pessoal} itens de Contas!Cartão Pessoal; ${data.n_itens_obra_cartao} itens marcados "Obra Apto" aparecem em Gastos por Tipo mas o valor mensal de obra usado na DRE vem de Fluxo_Apto_Realizado, não deste cadastro.</div>
     <div>Fonte: planilha Google Sheets FL_2024 — abas DRE_Mensal, Obra_Consolidado, Fluxo_Caixa, Gastos_Por_Tipo e Despesas_Casa. Regenerar com <code>daily_update.py</code>.</div>
   `;
