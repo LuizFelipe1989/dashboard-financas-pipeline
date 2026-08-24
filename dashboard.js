@@ -443,8 +443,8 @@
       <td class="num">${fmt0(o.previsto)}</td>
       <td class="num">${fmt0(o.pago)}</td>
       <td class="num">${fmt1pct(obraPctPago)}</td>
-      <td class="num">${fmt0(o.pendente)}</td>
-      <td class="num">${fmt0(o.futuro)}</td>
+      <td class="num">${fmt0(p.pix_pendente_total)}</td>
+      <td class="num">${fmt0(p.cartao_futuro)}</td>
       <td><div class="mini-bar">
         <div style="width:${o.pago / totalDenom * 100}%; background: var(--good)"></div>
         <div style="width:${o.pendente / totalDenom * 100}%; background: var(--warning)"></div>

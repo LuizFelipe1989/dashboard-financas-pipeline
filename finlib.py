@@ -22,6 +22,10 @@ CARD_TABLE_FIRST_ROW = 3  # 1-indexed sheet row
 REF_MONTH_INDEX = 1  # 'ago./26' — mês de referência para contar parcelas restantes; ajuste aqui se necessário
 PARCELA_RE = re.compile(r"[Pp]arcela\s+(\d+)\s*/\s*(\d+)")
 
+# Assinaturas (natureza "Fixo Mensal") que NÃO devem recorrer nos meses seguintes:
+ASSINATURAS_CANCELADAS = ["Apple Bill - Chatgpt"]  # já cancelada, não repete
+ASSINATURAS_JA_EM_OUTRO_GRUPO = ["GymPass/TotalPass - Mensal"]  # já projetada como "Academia" em CUSTOS FIXOS a partir de set./26 — duplicaria
+
 # Canonical row taxonomy for Projeção Gastos_Atualizados -> DRE groups.
 # (row label in source, DRE group). Shared by build_dre.py, build_fluxo_caixa.py,
 # extract_dashboard_data.py so all 3 views agree on what's Fixo vs Variável.
@@ -146,11 +150,19 @@ def load_card_items(ws):
 
 def distribute(items, n_months, ref_month_index=REF_MONTH_INDEX):
     """Return list of (item, monthly_values[n_months]) — each item's per-installment
-    value placed as a negative (expense) in its remaining months from ref_month_index."""
+    value placed as a negative (expense) in its remaining months from ref_month_index.
+    Assinaturas (natureza 'Fixo Mensal') recorrem até o fim do horizonte, já que são
+    recorrentes de verdade — diferente de Discricionário (só o mês da fatura) e Parcelado
+    (só as parcelas restantes). Exceções: ASSINATURAS_CANCELADAS (já cancelada, não
+    recorre) e ASSINATURAS_JA_EM_OUTRO_GRUPO (já projetada em outra linha, não duplica)."""
     out = []
     for it in items:
         vals = [0.0] * n_months
-        for k in range(it["restantes"]):
+        restantes = it["restantes"]
+        if (it["natureza"] == "Fixo Mensal" and it["desc"] not in ASSINATURAS_CANCELADAS
+                and it["desc"] not in ASSINATURAS_JA_EM_OUTRO_GRUPO):
+            restantes = max(n_months - ref_month_index, restantes)
+        for k in range(restantes):
             idx = ref_month_index + k
             if idx < n_months:
                 vals[idx] = -abs(it["valor_parcela"])

@@ -196,12 +196,16 @@ def main():
         acc["pago"] += it["pago"]
         acc["pendente"] += it["pendente"]
         acc["futuro"] += it["futuro"]
-        # Pix só aparece como "pendente" (rosa); Cartão só aparece como "futuro" (parcela
-        # ainda não lançada) — "Pendente Cartão" reaproveita esse bucket como o pendente
-        # em aberto do cartão (gasto projetado, ainda não cobrado).
+        # Pix não tem um "futuro com data" separado como o Cartão (parcela agendada) —
+        # rosa (pendente) e azul (futuro) são os dois estados de "ainda não pago"; ao
+        # abrir o mês com a janela de pagamentos pronta, os dois contam como a pagar
+        # (bate com a tabela "Janela de Pagamentos AI:AK", que reúne exatamente os
+        # itens hoje classificados como azul/futuro). Cartão segue só "futuro" (parcela
+        # ainda não lançada) como o pendente em aberto — "Pendente Cartão" reaproveita
+        # esse bucket.
         modalidade = it["modalidade"].strip().lower()
         if modalidade == "pix":
-            acc["pendente_pix"] += it["pendente"]
+            acc["pendente_pix"] += it["pendente"] + it["futuro"]
         elif modalidade == "cartão":
             acc["pendente_cartao"] += it["futuro"]
     class_rollup = [{"classificacao": c, **acc} for c, acc in sorted(by_class.items(), key=lambda kv: -kv[1]["previsto"])]
@@ -249,13 +253,11 @@ def main():
         ]
         pix_fonte = "cor"
 
-    # "Pix pendente a realizar" (tile da Obra) precisa bater com a Janela de Pagamento:
-    # pendente (rosa, já reconhecido como em aberto) + o que a janela manual mais recente
-    # ainda lista pra sair (mesma fonte usada no quadro Janela de Pagamento acima) — sem
-    # essa soma, o tile mostrava só o pendente rosa e ficava bem abaixo do que a janela
-    # já deixa claro que falta pagar.
-    pix_janela_total = janela_pix_manual["total"] if janela_pix_manual is not None else pagamentos["pix_futuro"]
-    pagamentos["pix_pendente_total"] = pagamentos["pix_pendente"] + pix_janela_total
+    # "Pix pendente a realizar" (tile + tabela por classificação da Obra) soma pendente
+    # (rosa) e futuro (azul) — Pix não tem um "futuro com data" separado como o Cartão;
+    # os dois são "ainda não pago" e batem exatamente com o total da Janela de Pagamento
+    # manual (mesmos itens, só que sem quebra por classificação lá).
+    pagamentos["pix_pendente_total"] = pagamentos["pix_pendente"] + pagamentos["pix_futuro"]
 
     janela_pagamento = {
         "mes": months[dash_ref],
