@@ -24,7 +24,9 @@ PARCELA_RE = re.compile(r"[Pp]arcela\s+(\d+)\s*/\s*(\d+)")
 
 # Assinaturas (natureza "Fixo Mensal") que NÃO devem recorrer nos meses seguintes:
 ASSINATURAS_CANCELADAS = ["Apple Bill - Chatgpt"]  # já cancelada, não repete
-ASSINATURAS_JA_EM_OUTRO_GRUPO = ["GymPass/TotalPass - Mensal"]  # já projetada como "Academia" em CUSTOS FIXOS a partir de set./26 — duplicaria
+# GymPass virou Total Pass (R$89,90/mês) — confirmado pelo usuário que recorre normalmente
+# nos meses seguintes junto com o cartão, então não entra mais nessa lista de exclusão.
+ASSINATURAS_JA_EM_OUTRO_GRUPO = []
 
 # Canonical row taxonomy for Projeção Gastos_Atualizados -> DRE groups.
 # (row label in source, DRE group). Shared by build_dre.py, build_fluxo_caixa.py,
