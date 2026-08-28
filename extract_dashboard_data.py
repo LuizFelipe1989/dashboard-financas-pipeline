@@ -5,10 +5,10 @@ from finlib import (
     get_clients, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, DESPESAS_CASA_TAB, REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals, fmt_brl,
     apply_despesas_casa_handover, neutralize_investimentos_row, compute_financiamento_obra,
-    variavel_disponivel_para_obra, _MES_ABREV_PARA_NOME,
+    variavel_disponivel_para_obra,
 )
 from build_dre import build_rows
-from build_obra import load_items_and_colors, load_month_window, load_janela_pix_manual, payment_summary, SRC_TAB as OBRA_TAB
+from build_obra import load_items_and_colors, load_item_grid, window_from_grid_by_dre_index, load_janela_pix_manual, payment_summary, SRC_TAB as OBRA_TAB
 from build_gastos_tipo import group_by_natureza, NATUREZA_ORDEM
 from build_investimentos import (
     load_investimentos, ensure_live_quotes, get_fundo_obra_balance,
@@ -158,6 +158,22 @@ def main():
         "margem_liquida": margem_sem_obra_ref,
         "margem_liquida_pct": margem_sem_obra_ref / base_receita * 100,
     }
+
+    def build_dre_resumo(i):
+        rl = totals["receita_liquida"][i]
+        cf = totals["fixo"][i]
+        cv = totals["variavel"][i]
+        co = totals["variavel_obra"][i]
+        ml = rl + cf + cv
+        base = abs(rl) or 1.0
+        return {
+            "receita_liquida": rl, "custos_fixos": cf, "custos_fixos_pct": abs(cf) / base * 100,
+            "custos_variaveis": cv, "custos_variaveis_pct": abs(cv) / base * 100,
+            "custo_obra": co, "custo_obra_pct": abs(co) / base * 100,
+            "margem_liquida": ml, "margem_liquida_pct": ml / base * 100,
+        }
+
+    dre_resumo_by_month = [build_dre_resumo(i) for i in range(n)]
     dre_detalhe = dre_detalhe_full(months, proj_data, ctipo, cartao_obra_mensal, totals)
 
     # ---- Gastos por Tipo: Fixo Mensal / Parcelado / Discricionário, com subtotais ----
@@ -224,47 +240,49 @@ def main():
         "por_classificacao": class_rollup,
     }
 
-    # ---- Janela de pagamento do mês em foco: quadro separado com o que é esperado
-    # sair nesse mês. Cartão vem da classificação por cor (só dá o mês, não o dia).
-    # Pix vem da tabela manual "Janela de Pagamentos {Mês}{Ano}" (colunas AI:AK) que o
-    # usuário monta com datas reais — mais precisa; cai de volta pra classificação por
-    # cor se essa tabela não existir ainda pro mês em foco.
-    mes_abrev = months[dash_ref].split("./")[0].strip().lower()
-    mes_nome = _MES_ABREV_PARA_NOME.get(mes_abrev, "").capitalize()
-    month_window = load_month_window(sh, sheets_api, obra_ws, mes_nome)
-    cartao_itens = [
-        {"item": it["item"], "classificacao": it["classificacao"], "modalidade": it["modalidade"],
-         "valor": it["valor"], "status": it["status"], "data": ""}
-        for it in month_window if it["modalidade"].strip().lower() == "cartão"
-    ]
+    # ---- Janela de pagamento: quadro separado com o que é esperado sair em cada mês.
+    # Cartão vem da classificação por cor (só dá o mês, não o dia). Pix vem da tabela
+    # manual "Janela de Pagamentos {Mês}{Ano}" (colunas AI:AK) que o usuário monta com
+    # datas reais — mais precisa, mas só existe pro mês em foco (dash_ref); cai de volta
+    # pra classificação por cor pros demais meses (usado pelo seletor de mês do dash).
     janela_pix_manual = load_janela_pix_manual(obra_ws)
-    if janela_pix_manual is not None:
-        pix_itens = [
-            {"item": it["item"], "classificacao": "", "modalidade": "Pix", "valor": it["valor"],
-             "status": "PENDENTE", "data": it["data"]}
-            for it in janela_pix_manual["itens"]
-        ]
-        pix_fonte = "manual"
-    else:
-        pix_itens = [
+    item_grid_values, item_grid = load_item_grid(sh, sheets_api, obra_ws)
+
+    def build_janela_pagamento(month_idx):
+        month_window = window_from_grid_by_dre_index(item_grid_values, item_grid, month_idx)
+        cartao_itens = [
             {"item": it["item"], "classificacao": it["classificacao"], "modalidade": it["modalidade"],
              "valor": it["valor"], "status": it["status"], "data": ""}
-            for it in month_window if it["modalidade"].strip().lower() == "pix"
+            for it in month_window if it["modalidade"].strip().lower() == "cartão"
         ]
-        pix_fonte = "cor"
+        if month_idx == dash_ref and janela_pix_manual is not None:
+            pix_itens = [
+                {"item": it["item"], "classificacao": "", "modalidade": "Pix", "valor": it["valor"],
+                 "status": "PENDENTE", "data": it["data"]}
+                for it in janela_pix_manual["itens"]
+            ]
+            pix_fonte = "manual"
+        else:
+            pix_itens = [
+                {"item": it["item"], "classificacao": it["classificacao"], "modalidade": it["modalidade"],
+                 "valor": it["valor"], "status": it["status"], "data": ""}
+                for it in month_window if it["modalidade"].strip().lower() == "pix"
+            ]
+            pix_fonte = "cor"
+        itens = pix_itens + cartao_itens
+        return {
+            "mes": months[month_idx], "pix_fonte": pix_fonte, "itens": itens,
+            "total": sum(it["valor"] for it in itens),
+        }
+
+    janela_pagamento_by_month = [build_janela_pagamento(i) for i in range(n)]
+    janela_pagamento = janela_pagamento_by_month[dash_ref]
 
     # "Pix pendente a realizar" (tile + tabela por classificação da Obra) soma pendente
     # (rosa) e futuro (azul) — Pix não tem um "futuro com data" separado como o Cartão;
     # os dois são "ainda não pago" e batem exatamente com o total da Janela de Pagamento
     # manual (mesmos itens, só que sem quebra por classificação lá).
     pagamentos["pix_pendente_total"] = pagamentos["pix_pendente"] + pagamentos["pix_futuro"]
-
-    janela_pagamento = {
-        "mes": months[dash_ref],
-        "pix_fonte": pix_fonte,
-        "itens": pix_itens + cartao_itens,
-    }
-    janela_pagamento["total"] = sum(it["valor"] for it in janela_pagamento["itens"])
 
     jul27_idx = next((i for i, m in enumerate(months) if m.startswith("jul./27")), n - 1)
 
@@ -305,10 +323,12 @@ def main():
         "saldo_mes": saldo_mes,
         "saldo_acumulado": saldo_acumulado,
         "dre_resumo": dre_resumo,
+        "dre_resumo_by_month": dre_resumo_by_month,
         "dre_detalhe": dre_detalhe,
         "gastos_por_natureza": gastos_por_natureza,
         "obra": obra_out,
         "janela_pagamento": janela_pagamento,
+        "janela_pagamento_by_month": janela_pagamento_by_month,
         "pagamentos": pagamentos,
         "financiamento_obra": {
             "investimento_bloqueado_total": fin["investimento_bloqueado_total"],

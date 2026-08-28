@@ -54,10 +54,6 @@
   document.getElementById('meta-horizon').textContent = 'Horizonte: ' + monthShort(data.months[0]) + ' – ' + monthShort(data.months[N - 1]);
 
   // ---------- KPI row ----------
-  const receitaMes = data.entradas[REF];
-  const despesasMes = data.saidas[REF];
-  const resultadoMes = data.saldo_liquido[REF];
-  const saldoFinal = data.saldo_acumulado[N - 1];
   const obraPctPago = data.obra.previsto ? (data.obra.pago / data.obra.previsto * 100) : 0;
 
   function donutSvg(pct, colorVar, size, stroke) {
@@ -101,29 +97,44 @@
   }
 
   const kpiRow = document.getElementById('kpi-row');
-  kpiRow.appendChild(kpiTile({
-    label: 'Entradas do mês', value: fmt0(receitaMes),
-    foot: 'Salário líquido',
-  }));
-  kpiRow.appendChild(kpiTile({
-    label: 'Saídas do mês', value: moneySpan(despesasMes),
-    foot: 'Fixos + variáveis (com obra)',
-  }));
-  kpiRow.appendChild(kpiTile({
-    label: 'Saldo líquido do mês', value: moneySpan(resultadoMes),
-    deltaText: resultadoMes >= 0 ? 'Superavitário' : 'Deficitário',
-    deltaClass: resultadoMes >= 0 ? 'good' : 'critical',
-  }));
-  kpiRow.appendChild(kpiTile({
-    label: 'Saldo projetado · ' + monthShort(data.months[N - 1]), value: moneySpan(saldoFinal),
-    deltaText: saldoFinal >= 0 ? 'Acumulado positivo' : 'Acumulado negativo',
-    deltaClass: saldoFinal >= 0 ? 'good' : 'critical',
-  }));
-  kpiRow.appendChild(kpiTile({
-    label: 'Obra — % pago',
-    donut: { pct: obraPctPago, color: 'var(--accent)' },
-    foot: fmt0(data.obra.pago) + ' de ' + fmt0(data.obra.previsto),
-  }));
+  // "Acumulado" = a visão padrão (mês em foco pras entradas/saídas/saldo do mês, mas o
+  // Saldo Projetado mostra o horizonte inteiro — Ago/27). Selecionando um mês específico,
+  // as 3 primeiras trocam pra esse mês e o card de saldo vira "Saldo Acumulado até [mês]"
+  // (saldo_acumulado[i] daquele ponto, não mais o final do horizonte).
+  function renderKpiRow(monthIdx, isAcc) {
+    kpiRow.innerHTML = '';
+    const receitaMes = data.entradas[monthIdx];
+    const despesasMes = data.saidas[monthIdx];
+    const resultadoMes = data.saldo_liquido[monthIdx];
+    const saldoIdx = isAcc ? N - 1 : monthIdx;
+    const saldoVal = data.saldo_acumulado[saldoIdx];
+    const saldoLabel = isAcc
+      ? 'Saldo projetado · ' + monthShort(data.months[N - 1])
+      : 'Saldo acumulado · ' + monthShort(data.months[monthIdx]);
+    kpiRow.appendChild(kpiTile({
+      label: 'Entradas do mês', value: fmt0(receitaMes),
+      foot: 'Salário líquido',
+    }));
+    kpiRow.appendChild(kpiTile({
+      label: 'Saídas do mês', value: moneySpan(despesasMes),
+      foot: 'Fixos + variáveis (com obra)',
+    }));
+    kpiRow.appendChild(kpiTile({
+      label: 'Saldo líquido do mês', value: moneySpan(resultadoMes),
+      deltaText: resultadoMes >= 0 ? 'Superavitário' : 'Deficitário',
+      deltaClass: resultadoMes >= 0 ? 'good' : 'critical',
+    }));
+    kpiRow.appendChild(kpiTile({
+      label: saldoLabel, value: moneySpan(saldoVal),
+      deltaText: saldoVal >= 0 ? 'Acumulado positivo' : 'Acumulado negativo',
+      deltaClass: saldoVal >= 0 ? 'good' : 'critical',
+    }));
+    kpiRow.appendChild(kpiTile({
+      label: 'Obra — % pago',
+      donut: { pct: obraPctPago, color: 'var(--accent)' },
+      foot: fmt0(data.obra.pago) + ' de ' + fmt0(data.obra.previsto),
+    }));
+  }
 
   // ---------- Fluxo de Caixa: entradas (cima) / saídas (baixo) + saldo líquido acumulado ----------
   (function () {
@@ -206,12 +217,13 @@
   })();
 
   // ---------- DRE resumida ----------
-  (function () {
-    const r = data.dre_resumo;
+  function renderDreKpis(monthIdx) {
+    const r = data.dre_resumo_by_month[monthIdx];
     document.getElementById('dre-sub').textContent =
-      monthShort(data.months[REF]) + ' — margem líquida (sem obra) ' + fmt1pct(r.margem_liquida_pct) + ' da receita';
+      monthShort(data.months[monthIdx]) + ' — margem líquida (sem obra) ' + fmt1pct(r.margem_liquida_pct) + ' da receita';
 
     const kpis = document.getElementById('dre-kpis');
+    kpis.innerHTML = '';
     const rows = [
       ['Receita Líquida', r.receita_liquida, null, false],
       ['Custo Fixo', r.custos_fixos, r.custos_fixos_pct, false],
@@ -236,9 +248,12 @@
       `;
       kpis.appendChild(el);
     });
+  }
 
+  (function () {
     // Tabela mês a mês (jul./26 – ago./27), mesma estrutura seccionada da DRE_Mensal —
     // Custo Obra segue nas linhas normais (Variável Obra), separado só nos KPIs acima.
+    // Sempre mostra o horizonte inteiro, independente do seletor de mês.
     const thead = document.getElementById('dre-detail-head');
     const headCells = ['Linha'].concat(data.months.map(monthShort)).concat(['Total']);
     thead.innerHTML = `<tr>${headCells.map((h, i) => `<th${i > 0 ? ' class="num"' : ''}>${h}</th>`).join('')}</tr>`;
@@ -651,9 +666,9 @@
     });
   })();
 
-  // ---------- janela de pagamento (mês em foco) — agrupada por Pix / Cartão ----------
-  (function () {
-    const jp = data.janela_pagamento;
+  // ---------- janela de pagamento (mês selecionado) — agrupada por Pix / Cartão ----------
+  function renderJanela(monthIdx) {
+    const jp = data.janela_pagamento_by_month[monthIdx];
     if (!jp) return;
     document.getElementById('janela-title').textContent = 'Janela de Pagamento — ' + monthShort(jp.mes);
     const pixFonteTxt = jp.pix_fonte === 'manual' ? 'Pix com datas reais (planilha)' : 'Pix por cor de célula (sem data)';
@@ -664,12 +679,14 @@
     const statusClass = { PAGO: 'pago', PENDENTE: 'pendente', FUTURO: 'futuro' };
     const statusLabel = { PAGO: 'Pago', PENDENTE: 'Pendente', FUTURO: 'Futuro' };
     const tbody = document.getElementById('janela-table-body');
+    tbody.innerHTML = '';
 
     // Resumo (tiles) sempre visível, igual à DRE Resumida — o detalhamento item a item
     // fica escondido atrás do <details>, só abre quando o usuário quer conferir.
     const pixSubtotal = jp.itens.filter((it) => it.modalidade.toLowerCase() === 'pix').reduce((s, it) => s + it.valor, 0);
     const cartaoSubtotal = jp.itens.filter((it) => it.modalidade.toLowerCase() === 'cartão').reduce((s, it) => s + it.valor, 0);
     const tiles = document.getElementById('janela-tiles');
+    tiles.innerHTML = '';
     [
       ['Subtotal Pix', pixSubtotal],
       ['Subtotal Cartão', cartaoSubtotal],
@@ -724,10 +741,42 @@
       totalTr.innerHTML = `<td colspan="3">Total (Pix + Cartão)</td><td class="num">${fmt0(-jp.total)}</td><td colspan="2"></td>`;
       tbody.appendChild(totalTr);
     }
+  }
+
+  // ---------- seletor de mês global (Indicadores + DRE Resumida + Janela de Pagamento) ----------
+  // "Acumulado" é a visão padrão (mês em foco = REF, Saldo Projetado mostra o horizonte
+  // inteiro). Selecionar um mês específico troca essas 3 seções pra visão daquele mês —
+  // o resto do dash (Obra, Investimentos, Fluxo de Caixa, Cartão Obra, Financiamento da
+  // Obra, Alertas) continua mostrando o horizonte/estado atual, já que são naturalmente
+  // acumulados ou multi-mês por natureza.
+  (function () {
+    const select = document.getElementById('global-month-select');
+    const optAcc = document.createElement('option');
+    optAcc.value = 'acc';
+    optAcc.textContent = 'Acumulado (mês em foco → horizonte)';
+    select.appendChild(optAcc);
+    data.months.forEach((m, i) => {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = monthShort(m);
+      select.appendChild(opt);
+    });
+    select.value = 'acc';
+
+    function render(value) {
+      const isAcc = value === 'acc';
+      const monthIdx = isAcc ? REF : Number(value);
+      renderKpiRow(monthIdx, isAcc);
+      renderDreKpis(monthIdx);
+      renderJanela(monthIdx);
+    }
+    select.addEventListener('change', () => render(select.value));
+    render('acc');
   })();
 
   // ---------- footnotes ----------
   document.getElementById('footnotes').innerHTML = wrapMoney(`
+    <div><b>Seletor de mês</b> (no topo): "Acumulado" é a visão padrão — mês em foco (${monthShort(data.months[REF])}) nos Indicadores/DRE/Janela, com o Saldo Projetado olhando pro horizonte inteiro (${monthShort(data.months[N - 1])}). Selecionando um mês específico, essas 3 seções trocam pra visão daquele mês (Saldo vira "Acumulado até ali"); o resto do dashboard (Obra, Investimentos, Fluxo de Caixa, Cartão Obra, Financiamento da Obra, Alertas) continua mostrando o estado atual/horizonte, por serem visões acumuladas ou multi-mês.</div>
     <div><b>Mês em foco</b> (indicadores, DRE Resumida, janela de pagamento, distribuição de parcelas de cartão): ${monthShort(data.months[REF])} — o próximo mês a acontecer. O saldo real conhecido é ancorado em ${monthShort(data.months[data.anchor_month_index])}, que já foi realizado.</div>
     <div><b>Janela de pagamento</b> lista os itens da Obra (Fluxo_Apto_Realizado) com valor lançado no mês em foco. Pix usa a tabela "Janela de Pagamentos" com datas reais quando ela existe pro mês (senão cai para o mês inteiro, por cor de célula); Cartão sempre por cor de célula — só dá o mês, a parcela específica não tem dia marcado.</div>
     <div><b>Apto Saúde</b> devolvido em ago./26 — a partir de set./26 restou só o Cartão Crédito Casa, projetado mês a mês pelas parcelas pendentes em Despesas_Casa (aba própria); as demais linhas (aluguel/condomínio/Enel/internet) zeram. Informativo, paga a Gabi, não entra nas saídas.</div>

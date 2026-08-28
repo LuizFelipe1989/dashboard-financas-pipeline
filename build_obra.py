@@ -79,18 +79,12 @@ def load_items_and_colors(sh, sheets_api, ws):
     return items
 
 
-def load_month_window(sh, sheets_api, ws, month_label):
-    """Janela de pagamento de um mês específico do item table — cada item com valor
-    lançado nesse mês, com status (Pago/Pendente/Futuro), classificação e modalidade.
-    Dá a visão linha a linha do que é esperado sair naquele mês (não só o agregado),
-    pra apoiar decisão antecipada."""
+def load_item_grid(sh, sheets_api, ws):
+    """Busca UMA vez os dados (valores + cor de fundo) da região de meses do item table
+    inteira — usado por quem precisa da janela de vários meses (ex.: o seletor de mês do
+    dashboard), pra não estourar cota da Sheets API repetindo essa mesma leitura por
+    mês (cada leitura completa custa 2 chamadas; 14 meses = 28 chamadas por rodada)."""
     values = ws.get_all_values()
-    header_row = values[HEADER_ROW - 1]
-    month_names = [c.strip() for c in header_row[9:22]]
-    if month_label not in month_names:
-        return []
-    month_offset = month_names.index(month_label)
-
     range_a1 = f"{SRC_TAB}!{MONTH_COL_START}{FIRST_ITEM_ROW}:{MONTH_COL_END}{LAST_ITEM_ROW}"
     resp = sheets_api.spreadsheets().get(
         spreadsheetId=sh.id,
@@ -98,7 +92,44 @@ def load_month_window(sh, sheets_api, ws, month_label):
         fields="sheets.data.rowData.values(formattedValue,userEnteredFormat.backgroundColor)",
     ).execute()
     grid = resp["sheets"][0]["data"][0].get("rowData", [])
+    return values, grid
 
+
+def load_month_window(sh, sheets_api, ws, month_label):
+    """Janela de pagamento de um mês específico do item table — cada item com valor
+    lançado nesse mês, com status (Pago/Pendente/Futuro), classificação e modalidade.
+    Dá a visão linha a linha do que é esperado sair naquele mês (não só o agregado),
+    pra apoiar decisão antecipada."""
+    values, grid = load_item_grid(sh, sheets_api, ws)
+    header_row = values[HEADER_ROW - 1]
+    month_names = [c.strip() for c in header_row[9:22]]
+    if month_label not in month_names:
+        return []
+    # A tabela cobre ~13 meses (Junho a Junho) — "Junho" aparece 2x (início e fim do
+    # período). Usa a ÚLTIMA ocorrência: quem chama isso already resolveu o mês certo
+    # (ex.: via window_from_grid_by_dre_index), então o nome mais recente é o correto.
+    month_offset = len(month_names) - 1 - month_names[::-1].index(month_label)
+    return window_from_grid(values, grid, month_offset)
+
+
+def window_from_grid_by_dre_index(values, grid, dre_month_idx):
+    """Mesma janela, mas indexada diretamente pelo índice de mês da DRE (months[i] do
+    resto do pipeline) em vez de buscar por nome — evita a ambiguidade de "Junho"
+    aparecer 2x na tabela e cobre corretamente o caso de meses fora do período que essa
+    tabela rastreia (ela só vai até jun./27; jul./27 e ago./27 não têm coluna aqui,
+    então voltam vazios em vez de reaproveitar por engano a coluna de um ano antes).
+    Offset verificado: DRE months[i] == Fluxo_Apto_Realizado coluna (10 + i) — a tabela
+    aqui é fatiada a partir da coluna 9, então offset dentro da fatia = i + 1.
+    Não faz chamada de API — opera sobre (values, grid) já buscados via load_item_grid."""
+    header_row = values[HEADER_ROW - 1]
+    month_names_len = len(header_row[9:22])
+    month_offset = dre_month_idx + 1
+    if month_offset >= month_names_len:
+        return []
+    return window_from_grid(values, grid, month_offset)
+
+
+def window_from_grid(values, grid, month_offset):
     window = []
     for r in range(FIRST_ITEM_ROW, LAST_ITEM_ROW + 1):
         vals = values[r - 1]

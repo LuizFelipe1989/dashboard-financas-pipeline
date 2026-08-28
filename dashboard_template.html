@@ -164,6 +164,7 @@ body.privacy-on text.axis-label {
 .panel-sub-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
 .panel-sub-row .panel-sub { margin-bottom: 0; }
 .month-select { font-family: 'Plex Sans Dash', sans-serif; font-size: 12px; color: var(--ink-secondary); background: var(--page); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
+.eyebrow .month-select { text-transform: none; letter-spacing: normal; font-weight: 500; }
 .panel + .panel { margin-top: 16px; }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
@@ -316,7 +317,10 @@ table.detail-table tr.row-total td { font-weight: 600; border-top: 1px solid var
     </div>
   </header>
 
-  <div class="eyebrow">Indicadores do mês</div>
+  <div class="eyebrow panel-sub-row">
+    <span>Indicadores do mês</span>
+    <select class="month-select" id="global-month-select" aria-label="Ver o dashboard na visão de um mês específico"></select>
+  </div>
   <div class="kpi-row" id="kpi-row"></div>
 
   <div class="eyebrow">Alertas &amp; sinais de eficiência</div>
