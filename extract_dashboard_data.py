@@ -11,7 +11,7 @@ from build_dre import build_rows
 from build_obra import load_items_and_colors, load_item_grid, window_from_grid_by_dre_index, load_janela_pix_manual, payment_summary, SRC_TAB as OBRA_TAB
 from build_gastos_tipo import group_by_natureza, NATUREZA_ORDEM
 from build_investimentos import (
-    load_investimentos, ensure_live_quotes, get_fundo_obra_balance,
+    load_investimentos, ensure_live_quotes, apply_live_prices, get_fundo_obra_balance,
     compute_rentabilidade_ativa, compute_highlights, SRC_TAB as INVEST_TAB,
 )
 
@@ -117,6 +117,7 @@ def main():
     invest_categorias, invest_total = load_investimentos(invest_ws)
     invest_tickers = sorted({it["ticker"] for cat in invest_categorias for it in cat["itens"] if it["ticker"]})
     invest_quotes = ensure_live_quotes(sh, sheets_api, invest_tickers)
+    apply_live_prices(invest_categorias, invest_quotes)
     invest_rent_ativa = compute_rentabilidade_ativa(invest_categorias)
     fundo_obra_balance = get_fundo_obra_balance(invest_categorias)
 

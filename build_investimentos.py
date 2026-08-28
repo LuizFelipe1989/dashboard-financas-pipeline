@@ -81,6 +81,29 @@ def _fix_direct_rentabilidade(row):
     row["started_zero"] = row["valor_original"] == 0 and row["valor_atual"] > 0
 
 
+def apply_live_prices(categorias, quotes):
+    """Corrige valor_atual (e rentabilidade) das linhas com ticker usando a cotação ao
+    vivo (GOOGLEFINANCE via ensure_live_quotes), em vez do "Valor Atual" já calculado na
+    planilha — a fórmula da coluna L pra Carteira Maria está quebrada e mostra o valor
+    atual igual ao custo de aquisição (qtd × PM), sem refletir a cotação de hoje. Só
+    mexe em linhas com ticker, quantidade > 0 e cotação disponível; o resto (ex.: linha
+    de saldo em dinheiro) mantém o valor já lido da planilha."""
+    for cat in categorias:
+        changed = False
+        for it in cat["itens"]:
+            ticker = it.get("ticker")
+            if ticker and quotes.get(ticker) and it["qtd"] > 0:
+                it["valor_atual"] = it["qtd"] * quotes[ticker]
+                _fix_direct_rentabilidade(it)
+                changed = True
+        if changed:
+            # O subtotal da categoria (linha de cabeçalho) também está desatualizado —
+            # soma os filhos direto em vez de confiar no valor já calculado na planilha.
+            cat["valor_atual"] = sum(it["valor_atual"] for it in cat["itens"])
+            cat["valor_original"] = sum(it["valor_original"] for it in cat["itens"])
+            _fix_direct_rentabilidade(cat)
+
+
 def load_investimentos(ws):
     values = ws.get_all_values()
     categorias = []
@@ -216,6 +239,7 @@ def main():
 
     tickers = sorted({it["ticker"] for cat in categorias for it in cat["itens"] if it["ticker"]})
     quotes = ensure_live_quotes(sh, sheets_api, tickers)
+    apply_live_prices(categorias, quotes)
     rent_ativa = compute_rentabilidade_ativa(categorias)
     highlights = compute_highlights(categorias, total, quotes, rent_ativa)
 
