@@ -35,7 +35,7 @@ STRUCTURE = [
     ("Previdência Privada", 7, [8, 9]),
     ("Ações Nacionais", 10, [11, 12, 13, 14, 15, 16]),
     ("Ações Int. + Cryptos", 17, [18]),
-    ("Carteira Maria", 24, [25, 26, 27, 28]),
+    ("Carteira Maria", 24, [25, 26, 27, 28, 29, 30]),
 ]
 TOTAL_ROW = 19
 
