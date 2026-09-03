@@ -216,6 +216,21 @@
     });
   })();
 
+  // Cabeçalho do Fluxo de Caixa mostra o mês selecionado direto, sem precisar passar o
+  // mouse em cada barra — o gráfico inteiro continua igual, só o resumo em texto muda.
+  (function () {
+    function renderFluxoSub(monthIdx) {
+      const saldo = data.entradas[monthIdx] + data.saidas[monthIdx];
+      document.getElementById('fluxo-sub').innerHTML = wrapMoney(
+        `${monthShort(data.months[monthIdx])}: Entradas ${fmt0(data.entradas[monthIdx])} · Saídas ${fmt0(data.saidas[monthIdx])} · Saldo líquido ${fmt0(saldo)} · Acumulado ${fmt0(data.saldo_acumulado[monthIdx])}`
+      );
+    }
+    const select = document.getElementById('fluxo-month');
+    populateMonthSelect(select, REF);
+    select.addEventListener('change', () => renderFluxoSub(Number(select.value)));
+    renderFluxoSub(REF);
+  })();
+
   // ---------- DRE resumida ----------
   function renderDreKpis(monthIdx) {
     const r = data.dre_resumo_by_month[monthIdx];
@@ -278,14 +293,19 @@
   (function () {
     const svg = document.getElementById('cartao-obra-chart');
     const series = data.cartao_obra_mensal;
-    // A fatura do mês em foco (REF) já foi paga antecipada — nada mais a vencer nela,
-    // então a referência aqui passa a ser a próxima fatura em aberto (REF + 1), mesma
-    // lógica já aplicada em Gastos por Tipo e na Janela de Pagamento.
-    const cartaoRefIdx = Math.min(REF + 1, N - 1);
-    const mesRefValor = abs(series[cartaoRefIdx]);
     const receitaMedia = data.months.reduce((s, _, i) => s + data.entradas[i], 0) / N;
-    document.getElementById('cartao-obra-sub').innerHTML = wrapMoney(
-      `${fmt0(mesRefValor)} em ${monthShort(data.months[cartaoRefIdx])} · fonte: Fluxo_Apto_Realizado (linha 55) · pico de ${fmt0(Math.min(...series))} no horizonte`);
+    function renderCartaoObraSub(monthIdx) {
+      document.getElementById('cartao-obra-sub').innerHTML = wrapMoney(
+        `${fmt0(abs(series[monthIdx]))} em ${monthShort(data.months[monthIdx])} · fonte: Fluxo_Apto_Realizado (linha 55) · pico de ${fmt0(Math.min(...series))} no horizonte`);
+    }
+    // A fatura do mês em foco (REF) já foi paga antecipada — nada mais a vencer nela,
+    // então o padrão aqui é a próxima fatura em aberto (REF + 1); o seletor deixa
+    // escolher qualquer outro mês do horizonte pra ver o montante direto, sem hover.
+    const cartaoRefIdx = Math.min(REF + 1, N - 1);
+    const cartaoSelect = document.getElementById('cartao-obra-month');
+    populateMonthSelect(cartaoSelect, cartaoRefIdx);
+    cartaoSelect.addEventListener('change', () => renderCartaoObraSub(Number(cartaoSelect.value)));
+    renderCartaoObraSub(cartaoRefIdx);
 
     const W = 340, H = 220, ML = 46, MR = 10, MT = 14, MB = 26;
     const plotW = W - ML - MR, plotH = H - MT - MB;
@@ -531,30 +551,19 @@
       return `${moneySpan(item.rent_acum_rs)} <span style="color:var(--ink-muted)">(${fmt1pct(item.rent_acum_pct)})</span>`;
     }
 
-    // Consolidado: todo ativo numa lista só, ordenado por posição atual — evita ter que
-    // abrir cada categoria pra comparar rentabilidade.
-    const consolidadoBody = document.getElementById('invest-consolidado-body');
-    (inv.consolidado || []).forEach((it) => {
-      const tr = document.createElement('tr');
-      tr.className = 'row-line';
-      tr.innerHTML = `
-        <td>${it.nome}<div style="color:var(--ink-muted);font-size:11px;">${it.categoria}</div></td>
-        <td class="num">${it.qtd_aquisicao ? it.qtd_aquisicao : '—'}</td>
-        <td class="num">${fmt0(it.valor_original)}</td>
-        <td class="num">${it.qtd ? it.qtd : '—'}</td>
-        <td class="num">${fmt0(it.valor_atual)}</td>
-        <td class="num">${rentCell(it)}</td>
-        <td class="num">${fmt1pct(it.pct_part)}</td>
-      `;
-      consolidadoBody.appendChild(tr);
-    });
-
     function renderGroup(container, group, openByDefault) {
       const details = document.createElement('details');
       details.className = 'invest-group';
       if (openByDefault) details.open = true;
       const summary = document.createElement('summary');
-      summary.innerHTML = wrapMoney(`<span class="name">${group.nome}</span><span class="meta">${fmt0(group.valor_atual)} · ${fmt1pct(group.pct_part)}</span>`);
+      // Rentabilidade já na linha fechada — dá pra bater o olho em todas as categorias
+      // sem precisar abrir cada uma (pedido explícito, layout compacto).
+      const rentTxt = group.liquidado
+        ? 'Liquidado'
+        : group.started_zero
+          ? 'Novo em 2026'
+          : `${fmt0(group.rent_acum_rs)} (${fmt1pct(group.rent_acum_pct)})`;
+      summary.innerHTML = wrapMoney(`<span class="name">${group.nome}</span><span class="meta">${fmt0(group.valor_atual)} · ${rentTxt} · ${fmt1pct(group.pct_part)}</span>`);
       details.appendChild(summary);
 
       const wrap = document.createElement('div');
@@ -602,39 +611,59 @@
   // ---------- Gastos por Tipo: Fixo Mensal / Parcelado / Discricionário, com subtotais ----------
   (function () {
     const container = document.getElementById('natureza-groups');
-    const grandTotal = data.gastos_por_natureza.reduce((s, g) => s + g.total, 0) || 1;
-    document.getElementById('tipo-sub').textContent = 'Próxima fatura em aberto — ' + monthShort(data.months[REF + 1]);
-    document.getElementById('tipo-total').textContent = fmt0(grandTotal);
-
     const summaryTiles = document.getElementById('tipo-summary-tiles');
-    data.gastos_por_natureza.forEach((g) => {
-      const el = document.createElement('div');
-      el.className = 'stat-tile';
-      el.innerHTML = `<div class="label">${g.natureza}</div><div class="value">${fmt0(g.total)}</div>`;
-      summaryTiles.appendChild(el);
-    });
 
-    data.gastos_por_natureza.forEach((g, gi) => {
-      const group = document.createElement('div');
-      group.className = 'natureza-group';
-      group.innerHTML = wrapMoney(`<div class="natureza-head"><span class="name">${g.natureza}</span><span class="val">${fmt0(g.total)} · ${g.pct.toFixed(1)}%</span></div>`);
-      const list = document.createElement('div');
-      list.className = 'bar-list';
-      g.tipos.forEach((t, i) => {
-        const color = `var(--cat-${((gi * 2 + i) % 5) + 1})`;
-        const row = document.createElement('div');
-        row.className = 'bar-list-row';
-        const pctOfGroup = g.total ? (t.total / g.total * 100) : 0;
-        row.innerHTML = wrapMoney(`
-          <span class="name">${t.tipo}</span>
-          <span class="bar-track"><span class="bar-fill" style="width:${pctOfGroup}%; background:${color}"></span></span>
-          <span class="val">${fmt0(t.total)}</span>
-        `);
-        list.appendChild(row);
+    function renderGastosTipo(monthIdx) {
+      const gastos = data.gastos_por_natureza_by_month[monthIdx];
+      const grandTotal = gastos.reduce((s, g) => s + g.total, 0) || 1;
+      const isFatura = monthIdx === data.fatura_month_index;
+      document.getElementById('tipo-sub').textContent = isFatura
+        ? 'Próxima fatura em aberto — ' + monthShort(data.months[monthIdx])
+        : 'Composição projetada — ' + monthShort(data.months[monthIdx]);
+      document.getElementById('tipo-total').textContent = fmt0(grandTotal);
+
+      summaryTiles.innerHTML = '';
+      gastos.forEach((g) => {
+        const el = document.createElement('div');
+        el.className = 'stat-tile';
+        el.innerHTML = `<div class="label">${g.natureza}</div><div class="value">${fmt0(g.total)}</div>`;
+        summaryTiles.appendChild(el);
       });
-      group.appendChild(list);
-      container.appendChild(group);
-    });
+
+      container.innerHTML = '';
+      gastos.forEach((g, gi) => {
+        const group = document.createElement('div');
+        group.className = 'natureza-group';
+        group.innerHTML = wrapMoney(`<div class="natureza-head"><span class="name">${g.natureza}</span><span class="val">${fmt0(g.total)} · ${g.pct.toFixed(1)}%</span></div>`);
+        const list = document.createElement('div');
+        list.className = 'bar-list';
+        if (g.tipos.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'foot';
+          empty.textContent = 'Nada nesse mês.';
+          list.appendChild(empty);
+        }
+        g.tipos.forEach((t, i) => {
+          const color = `var(--cat-${((gi * 2 + i) % 5) + 1})`;
+          const row = document.createElement('div');
+          row.className = 'bar-list-row';
+          const pctOfGroup = g.total ? (t.total / g.total * 100) : 0;
+          row.innerHTML = wrapMoney(`
+            <span class="name">${t.tipo}</span>
+            <span class="bar-track"><span class="bar-fill" style="width:${pctOfGroup}%; background:${color}"></span></span>
+            <span class="val">${fmt0(t.total)}</span>
+          `);
+          list.appendChild(row);
+        });
+        group.appendChild(list);
+        container.appendChild(group);
+      });
+    }
+
+    const select = document.getElementById('tipo-month');
+    populateMonthSelect(select, data.fatura_month_index);
+    select.addEventListener('change', () => renderGastosTipo(Number(select.value)));
+    renderGastosTipo(data.fatura_month_index);
   })();
 
   // ---------- Composição de Despesas do Mês (a partir da DRE, linhas Fixo+Variável) ----------
@@ -768,12 +797,12 @@
     }
   }
 
-  // ---------- seletor de mês global (Indicadores + DRE Resumida + Janela de Pagamento) ----------
+  // ---------- seletor de mês global (Indicadores + DRE Resumida) ----------
   // "Acumulado" é a visão padrão (mês em foco = REF, Saldo Projetado mostra o horizonte
-  // inteiro). Selecionar um mês específico troca essas 3 seções pra visão daquele mês —
+  // inteiro). Selecionar um mês específico troca essas 2 seções pra visão daquele mês —
   // o resto do dash (Obra, Investimentos, Fluxo de Caixa, Cartão Obra, Financiamento da
-  // Obra, Alertas) continua mostrando o horizonte/estado atual, já que são naturalmente
-  // acumulados ou multi-mês por natureza.
+  // Obra, Gastos por Tipo, Janela de Pagamento, Alertas) tem seletor próprio ou continua
+  // mostrando o horizonte/estado atual, já que são naturalmente acumulados ou multi-mês.
   (function () {
     const select = document.getElementById('global-month-select');
     const optAcc = document.createElement('option');
@@ -793,10 +822,27 @@
       const monthIdx = isAcc ? REF : Number(value);
       renderKpiRow(monthIdx, isAcc);
       renderDreKpis(monthIdx);
-      renderJanela(monthIdx);
     }
     select.addEventListener('change', () => render(select.value));
     render('acc');
+  })();
+
+  // ---------- seletores de mês locais (um por painel, independentes entre si) ----------
+  function populateMonthSelect(select, defaultIdx) {
+    data.months.forEach((m, i) => {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = monthShort(m);
+      select.appendChild(opt);
+    });
+    select.value = String(defaultIdx);
+  }
+
+  (function () {
+    const select = document.getElementById('janela-month');
+    populateMonthSelect(select, REF);
+    select.addEventListener('change', () => renderJanela(Number(select.value)));
+    renderJanela(REF);
   })();
 
   // ---------- footnotes ----------

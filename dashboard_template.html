@@ -330,7 +330,10 @@ table.detail-table tr.row-total td { font-weight: 600; border-top: 1px solid var
 
   <div class="eyebrow">Janela de pagamento</div>
   <section class="panel" style="margin-bottom:16px;">
-    <h2 id="janela-title">—</h2>
+    <div class="panel-sub-row">
+      <h2 id="janela-title" style="margin:0;">—</h2>
+      <select class="month-select" id="janela-month"></select>
+    </div>
     <div class="panel-sub" id="janela-sub">—</div>
     <div class="big-total" id="janela-total">—</div>
     <div class="stat-tiles" id="janela-tiles"></div>
@@ -346,8 +349,11 @@ table.detail-table tr.row-total td { font-weight: 600; border-top: 1px solid var
   </section>
 
   <section class="panel">
-    <h2>Fluxo de Caixa Projetado</h2>
-    <div class="panel-sub">Entradas, saídas e saldo líquido mês a mês — parte direto da DRE, 14 meses</div>
+    <div class="panel-sub-row">
+      <h2 style="margin:0;">Fluxo de Caixa Projetado</h2>
+      <select class="month-select" id="fluxo-month"></select>
+    </div>
+    <div class="panel-sub" id="fluxo-sub">Entradas, saídas e saldo líquido mês a mês — parte direto da DRE, 14 meses</div>
     <div class="chart-legend">
       <span class="item"><span class="swatch" style="background:var(--good)"></span>Entradas</span>
       <span class="item"><span class="swatch" style="background:var(--critical)"></span>Saídas</span>
@@ -377,7 +383,10 @@ table.detail-table tr.row-total td { font-weight: 600; border-top: 1px solid var
   <div class="eyebrow">Compromisso da obra</div>
   <div class="grid-2">
     <section class="panel">
-      <h2>Cartão Obra — Parcelas Futuras</h2>
+      <div class="panel-sub-row">
+        <h2 style="margin:0;">Cartão Obra — Parcelas Futuras</h2>
+        <select class="month-select" id="cartao-obra-month"></select>
+      </div>
       <div class="panel-sub" id="cartao-obra-sub">—</div>
       <div class="chart-legend">
         <span class="item"><span class="swatch" style="background:var(--critical)"></span>Parcela mensal</span>
@@ -425,28 +434,7 @@ table.detail-table tr.row-total td { font-weight: 600; border-top: 1px solid var
       <h2>Carteira de Investimentos</h2>
       <div class="panel-sub" id="invest-sub">—</div>
       <div class="stat-tiles" id="invest-tiles"></div>
-      <div class="panel-sub-row" style="margin-top:18px;">
-        <h2 style="font-size:15px;margin:0;">Consolidado por ativo</h2>
-      </div>
-      <div class="panel-sub" style="margin-bottom:8px;">Todos os ativos (todas as categorias) numa lista só — rentabilidade de cada um sem precisar abrir grupo por grupo</div>
-      <div class="wide-scroll">
-        <table class="detail-table" id="invest-consolidado-table">
-          <thead>
-            <tr>
-              <th>Descrição Investimento</th>
-              <th class="num">Qtde Aquisição</th>
-              <th class="num">Total Investido</th>
-              <th class="num">Qtde Atual</th>
-              <th class="num">Total Posição Atual</th>
-              <th class="num">Rentabilidade</th>
-              <th class="num">% Participação</th>
-            </tr>
-          </thead>
-          <tbody id="invest-consolidado-body"></tbody>
-        </table>
-      </div>
-      <h2 style="font-size:15px;margin:22px 0 4px;">Por categoria</h2>
-      <div class="panel-sub" style="margin-bottom:8px;">Mesmos ativos, agrupados — clique pra expandir cada categoria</div>
+      <div class="panel-sub" style="margin:16px 0 6px;">Por categoria — clique pra expandir e ver os ativos, aquisição e rentabilidade de cada um</div>
       <div id="invest-groups"></div>
     </section>
     <section class="panel">
@@ -458,7 +446,10 @@ table.detail-table tr.row-total td { font-weight: 600; border-top: 1px solid var
 
   <div class="grid-2">
     <section class="panel">
-      <h2>Gastos por Tipo</h2>
+      <div class="panel-sub-row">
+        <h2 style="margin:0;">Gastos por Tipo</h2>
+        <select class="month-select" id="tipo-month"></select>
+      </div>
       <div class="panel-sub" id="tipo-sub">—</div>
       <div class="big-total" id="tipo-total">—</div>
       <div class="stat-tiles" id="tipo-summary-tiles"></div>

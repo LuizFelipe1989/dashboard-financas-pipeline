@@ -180,23 +180,33 @@ def main():
     # ---- Gastos por Tipo: Fixo Mensal / Parcelado / Discricionário, com subtotais ----
     # A fatura do mês em foco (dash_ref) já foi paga antecipada — a próxima fatura em
     # aberto é a do mês seguinte, então a "fatura atual" do painel passa a refletir essa
-    # composição (mesma lógica usada em build_gastos_tipo.py).
+    # composição por padrão (mesma lógica usada em build_gastos_tipo.py). Computado pra
+    # TODOS os meses (não só o padrão) pra alimentar o seletor de mês do painel.
+    def build_gastos_por_natureza(month_idx):
+        by_nat = group_by_natureza_for_month(card_items, month_idx, n, ref)
+        grand = sum(acc["total"] for tipos in by_nat.values() for acc in tipos.values()) or 1.0
+        out = []
+        for nat in NATUREZA_ORDEM:
+            tipos = by_nat[nat]
+            nat_total = sum(acc["total"] for acc in tipos.values())
+            out.append({
+                "natureza": nat,
+                "total": nat_total,
+                "pct": nat_total / grand * 100,
+                "tipos": [
+                    {"tipo": tipo, "total": acc["total"], "pct": acc["total"] / grand * 100, "n_itens": len(acc["itens"])}
+                    for tipo, acc in sorted(tipos.items(), key=lambda kv: -kv[1]["total"])
+                ],
+            })
+        return out
+
+    gastos_por_natureza_by_month = [build_gastos_por_natureza(i) for i in range(n)]
     fatura_month_idx = dash_ref + 1
-    by_natureza = group_by_natureza_for_month(card_items, fatura_month_idx, n, ref)
-    grand_total_cartao = sum(acc["total"] for tipos in by_natureza.values() for acc in tipos.values()) or 1.0
-    gastos_por_natureza = []
-    for nat in NATUREZA_ORDEM:
-        tipos = by_natureza[nat]
-        nat_total = sum(acc["total"] for acc in tipos.values())
-        gastos_por_natureza.append({
-            "natureza": nat,
-            "total": nat_total,
-            "pct": nat_total / grand_total_cartao * 100,
-            "tipos": [
-                {"tipo": tipo, "total": acc["total"], "pct": acc["total"] / grand_total_cartao * 100, "n_itens": len(acc["itens"])}
-                for tipo, acc in sorted(tipos.items(), key=lambda kv: -kv[1]["total"])
-            ],
-        })
+    gastos_por_natureza = gastos_por_natureza_by_month[fatura_month_idx]
+    # Pro alerta de concentração discricionária: usa o mês em foco (dash_ref), não a
+    # fatura em aberto — essa nunca tem discricionário (não recorre por natureza), o
+    # alerta ficaria sempre mudo se usasse a mesma referência do painel de exibição.
+    by_natureza_dash_ref = group_by_natureza_for_month(card_items, dash_ref, n, ref)
 
     # ---- Obra ----
     obra_ws = sh.worksheet(OBRA_TAB)
@@ -312,7 +322,7 @@ def main():
     jul27_idx = next((i for i, m in enumerate(months) if m.startswith("jul./27")), n - 1)
 
     alerts = build_alerts(
-        months, dash_ref, totals, cartao_obra_mensal, obra_out, by_natureza,
+        months, dash_ref, totals, cartao_obra_mensal, obra_out, by_natureza_dash_ref,
         fin["saldo_investimento"], saldo_acumulado=saldo_acumulado, invest_search_from=ref,
     )
 
@@ -371,6 +381,8 @@ def main():
         "dre_resumo_by_month": dre_resumo_by_month,
         "dre_detalhe": dre_detalhe,
         "gastos_por_natureza": gastos_por_natureza,
+        "gastos_por_natureza_by_month": gastos_por_natureza_by_month,
+        "fatura_month_index": fatura_month_idx,
         "obra": obra_out,
         "janela_pagamento": janela_pagamento,
         "janela_pagamento_by_month": janela_pagamento_by_month,
