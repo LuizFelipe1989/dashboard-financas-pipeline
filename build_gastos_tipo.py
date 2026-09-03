@@ -1,6 +1,9 @@
 from collections import OrderedDict
 
-from finlib import get_clients, fmt_brl, CONTAS_TAB, load_card_items, red_negative_rule
+from finlib import (
+    get_clients, fmt_brl, CONTAS_TAB, PROJ_TAB, REF_MONTH_INDEX,
+    load_card_items, load_projecao, distribute, red_negative_rule,
+)
 
 OUT_TAB = "Gastos_Por_Tipo"
 NATUREZA_ORDEM = ["Fixo Mensal", "Parcelado", "Discricionário"]
@@ -19,7 +22,8 @@ def group_by_tipo(items):
 
 def group_by_natureza(items):
     """Tipo grouped within each Natureza (Fixo Mensal / Parcelado / Discricionário),
-    each carrying its own subtotal — the breakdown requested for Gastos_Por_Tipo."""
+    each carrying its own subtotal — a snapshot direto do valor_parcela de cada item,
+    sem olhar pra mês (equivale a "fatura mais recente lançada")."""
     out = OrderedDict((nat, OrderedDict()) for nat in NATUREZA_ORDEM)
     for it in items:
         bucket = out[it["natureza"]]
@@ -29,12 +33,41 @@ def group_by_natureza(items):
     return out
 
 
+def group_by_natureza_for_month(items, month_idx, n_months, ref_month_index):
+    """Mesma quebra Natureza → Tipo, mas usando o valor que cada item realmente lança
+    naquele mês específico (via distribute(), a mesma lógica de recorrência usada em
+    cartao_por_tipo) em vez do valor_parcela bruto. Usado quando a fatura de referência
+    já foi paga e o "próximo" mês em foco muda (ex.: setembro quitado, olhar outubro) —
+    Discricionário naturalmente aparece zerado em meses futuros, já que por natureza não
+    recorre (só a fatura em que realmente foi lançado tem esses itens)."""
+    dist = distribute(items, n_months, ref_month_index)
+    out = OrderedDict((nat, OrderedDict()) for nat in NATUREZA_ORDEM)
+    for it, vals in dist:
+        val = abs(vals[month_idx]) if month_idx < len(vals) else 0.0
+        if val == 0.0:
+            continue
+        bucket = out[it["natureza"]]
+        acc = bucket.setdefault(it["tipo"] or "(sem tipo)", {"total": 0.0, "itens": []})
+        acc["total"] += val
+        acc["itens"].append(it["desc"])
+    return out
+
+
 def main():
     sh, sheets_api = get_clients()
     contas_ws = sh.worksheet(CONTAS_TAB)
+    proj_ws = sh.worksheet(PROJ_TAB)
+    months, _ = load_projecao(proj_ws)
+    n = len(months)
     items = load_card_items(contas_ws)
-    by_natureza = group_by_natureza(items)
-    grand_total = sum(it["valor_parcela"] for it in items) or 1.0
+
+    # A fatura do mês de referência (REF_MONTH_INDEX) já foi paga antecipada — a próxima
+    # fatura em aberto é a do mês seguinte, então a "fatura atual" passa a mostrar essa
+    # composição em vez do snapshot bruto. Discricionário fica zerado ali por natureza
+    # (não recorre), o que é esperado — só aparece no mês em que foi realmente lançado.
+    fatura_month_idx = REF_MONTH_INDEX + 1
+    by_natureza = group_by_natureza_for_month(items, fatura_month_idx, n, REF_MONTH_INDEX)
+    grand_total = sum(acc["total"] for tipos in by_natureza.values() for acc in tipos.values()) or 1.0
 
     header = ["Natureza / Tipo", "Total", "% do Total", "Itens"]
     out_values = [header]
@@ -50,7 +83,8 @@ def main():
             out_values.append([f"  {tipo}", fmt_brl(acc["total"]), f"{pct:.1f}%", "; ".join(acc["itens"])])
             row_kinds.append("ITEM")
 
-    out_values.append(["TOTAL GERAL", fmt_brl(grand_total), "100.0%", f"{len(items)} itens"])
+    total_itens = sum(len(acc["itens"]) for tipos in by_natureza.values() for acc in tipos.values())
+    out_values.append(["TOTAL GERAL", fmt_brl(grand_total), "100.0%", f"{total_itens} itens"])
     row_kinds.append("TOTAL")
 
     try:

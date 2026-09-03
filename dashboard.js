@@ -581,7 +581,7 @@
   (function () {
     const container = document.getElementById('natureza-groups');
     const grandTotal = data.gastos_por_natureza.reduce((s, g) => s + g.total, 0) || 1;
-    document.getElementById('tipo-sub').textContent = 'Fatura atual do cartão';
+    document.getElementById('tipo-sub').textContent = 'Próxima fatura em aberto — ' + monthShort(data.months[REF + 1]);
     document.getElementById('tipo-total').textContent = fmt0(grandTotal);
 
     const summaryTiles = document.getElementById('tipo-summary-tiles');
@@ -672,8 +672,11 @@
     if (!jp) return;
     document.getElementById('janela-title').textContent = 'Janela de Pagamento — ' + monthShort(jp.mes);
     const pixFonteTxt = jp.pix_fonte === 'manual' ? 'Pix com datas reais (planilha)' : 'Pix por cor de célula (sem data)';
+    const cartaoTxt = jp.cartao_mes
+      ? `Cartão de ${monthShort(jp.cartao_mes)} (fatura de ${monthShort(jp.mes)} já paga antecipada)`
+      : 'Cartão por cor de célula';
     document.getElementById('janela-sub').textContent =
-      `Itens com valor lançado em ${monthShort(jp.mes)} · ${pixFonteTxt} · Cartão por cor de célula · ${jp.itens.length} itens`;
+      `Pix com valor lançado em ${monthShort(jp.mes)} · ${pixFonteTxt} · ${cartaoTxt} · ${jp.itens.length} itens`;
     document.getElementById('janela-total').innerHTML = moneySpan(-jp.total);
 
     const statusClass = { PAGO: 'pago', PENDENTE: 'pendente', FUTURO: 'futuro' };

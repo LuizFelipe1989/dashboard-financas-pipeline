@@ -9,7 +9,7 @@ from finlib import (
 )
 from build_dre import build_rows
 from build_obra import load_items_and_colors, load_item_grid, window_from_grid_by_dre_index, load_janela_pix_manual, payment_summary, SRC_TAB as OBRA_TAB
-from build_gastos_tipo import group_by_natureza, NATUREZA_ORDEM
+from build_gastos_tipo import group_by_natureza_for_month, NATUREZA_ORDEM
 from build_investimentos import (
     load_investimentos, ensure_live_quotes, apply_live_prices, get_fundo_obra_balance,
     compute_rentabilidade_ativa, compute_highlights, SRC_TAB as INVEST_TAB,
@@ -178,8 +178,12 @@ def main():
     dre_detalhe = dre_detalhe_full(months, proj_data, ctipo, cartao_obra_mensal, totals)
 
     # ---- Gastos por Tipo: Fixo Mensal / Parcelado / Discricionário, com subtotais ----
-    by_natureza = group_by_natureza(card_items)
-    grand_total_cartao = sum(it["valor_parcela"] for it in card_items) or 1.0
+    # A fatura do mês em foco (dash_ref) já foi paga antecipada — a próxima fatura em
+    # aberto é a do mês seguinte, então a "fatura atual" do painel passa a refletir essa
+    # composição (mesma lógica usada em build_gastos_tipo.py).
+    fatura_month_idx = dash_ref + 1
+    by_natureza = group_by_natureza_for_month(card_items, fatura_month_idx, n, ref)
+    grand_total_cartao = sum(acc["total"] for tipos in by_natureza.values() for acc in tipos.values()) or 1.0
     gastos_por_natureza = []
     for nat in NATUREZA_ORDEM:
         tipos = by_natureza[nat]
@@ -249,13 +253,17 @@ def main():
     janela_pix_manual = load_janela_pix_manual(obra_ws)
     item_grid_values, item_grid = load_item_grid(sh, sheets_api, obra_ws)
 
-    def build_janela_pagamento(month_idx):
+    def cartao_itens_for(month_idx):
         month_window = window_from_grid_by_dre_index(item_grid_values, item_grid, month_idx)
-        cartao_itens = [
+        return [
             {"item": it["item"], "classificacao": it["classificacao"], "modalidade": it["modalidade"],
              "valor": it["valor"], "status": it["status"], "data": ""}
             for it in month_window if it["modalidade"].strip().lower() == "cartão"
         ]
+
+    def build_janela_pagamento(month_idx):
+        month_window = window_from_grid_by_dre_index(item_grid_values, item_grid, month_idx)
+        cartao_itens = cartao_itens_for(month_idx)
         if month_idx == dash_ref and janela_pix_manual is not None:
             pix_itens = [
                 {"item": it["item"], "classificacao": "", "modalidade": "Pix", "valor": it["valor"],
@@ -277,6 +285,22 @@ def main():
         }
 
     janela_pagamento_by_month = [build_janela_pagamento(i) for i in range(n)]
+
+    # A fatura de cartão do mês em foco (dash_ref) já foi paga antecipada — não sobrou
+    # nada de cartão pra vencer nesse mês, então o quadro passa a mostrar a composição
+    # do CARTÃO da próxima fatura em aberto (dash_ref + 1). O PIX continua do mês em
+    # foco, já que esses pagamentos ainda estão pendentes.
+    if dash_ref + 1 < n:
+        pix_dash_ref = [it for it in janela_pagamento_by_month[dash_ref]["itens"] if it["modalidade"].strip().lower() == "pix"]
+        cartao_seguinte = cartao_itens_for(dash_ref + 1)
+        itens = pix_dash_ref + cartao_seguinte
+        janela_pagamento_by_month[dash_ref] = {
+            "mes": months[dash_ref],
+            "pix_fonte": janela_pagamento_by_month[dash_ref]["pix_fonte"],
+            "cartao_mes": months[dash_ref + 1],
+            "itens": itens,
+            "total": sum(it["valor"] for it in itens),
+        }
     janela_pagamento = janela_pagamento_by_month[dash_ref]
 
     # "Pix pendente a realizar" (tile + tabela por classificação da Obra) soma pendente
