@@ -205,6 +205,15 @@ svg text { font-family: 'Plex Mono Dash', monospace; fill: var(--ink-muted); }
 .plain-list-row.total { border-bottom: none; border-top: 1px solid var(--ink-muted); margin-top: 4px; padding-top: 9px; font-weight: 600; }
 .plain-list-row.total .name, .plain-list-row.total .val { color: var(--ink); }
 
+/* pie chart — total por cartão */
+.pie-row { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.pie-legend { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 180px; }
+.pie-legend-row { display: grid; grid-template-columns: 12px 1fr auto auto; align-items: center; gap: 8px; font-size: 12.5px; }
+.pie-legend-row .dot { width: 10px; height: 10px; border-radius: 50%; }
+.pie-legend-row .name { color: var(--ink-secondary); }
+.pie-legend-row .val { font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; text-align: right; }
+.pie-legend-row .pct { font-family: 'Plex Mono Dash', monospace; font-variant-numeric: tabular-nums; color: var(--ink-muted); text-align: right; width: 48px; }
+
 .natureza-group + .natureza-group { margin-top: 16px; }
 .natureza-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--gridline); }
 .natureza-head .name { font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-secondary); }
@@ -457,6 +466,8 @@ table.detail-table tr.row-total td { font-weight: 600; border-top: 1px solid var
         <summary>Ver detalhamento por tipo</summary>
         <div id="natureza-groups"></div>
       </details>
+      <div class="panel-sub" style="margin:16px 0 6px;">Total por cartão</div>
+      <div class="pie-row" id="tipo-cartao-chart"></div>
     </section>
 
     <section class="panel">

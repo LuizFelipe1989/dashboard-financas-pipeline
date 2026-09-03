@@ -56,6 +56,26 @@
   // ---------- KPI row ----------
   const obraPctPago = data.obra.previsto ? (data.obra.pago / data.obra.previsto * 100) : 0;
 
+  function pieChartSvg(slices, size) {
+    size = size || 168;
+    const stroke = size * 0.36;
+    const r = (size - stroke) / 2;
+    const c = 2 * Math.PI * r;
+    const cx = size / 2, cy = size / 2;
+    let acc = 0;
+    const arcs = slices.map((s) => {
+      const dash = Math.max(0, s.pct) / 100 * c;
+      const seg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${stroke}"
+        stroke-dasharray="${dash} ${c - dash}" stroke-dashoffset="${-acc}" transform="rotate(-90 ${cx} ${cy})" />`;
+      acc += dash;
+      return seg;
+    }).join('');
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--neutral-track)" stroke-width="${stroke}" />
+      ${arcs}
+    </svg>`;
+  }
+
   function donutSvg(pct, colorVar, size, stroke) {
     size = size || 56; stroke = stroke || 7;
     const p = Math.max(0, Math.min(100, pct));
@@ -612,6 +632,31 @@
   (function () {
     const container = document.getElementById('natureza-groups');
     const summaryTiles = document.getElementById('tipo-summary-tiles');
+    const cartaoChart = document.getElementById('tipo-cartao-chart');
+
+    function renderGastosPorCartao(monthIdx) {
+      const porCartao = (data.gastos_por_cartao_by_month && data.gastos_por_cartao_by_month[monthIdx]) || [];
+      cartaoChart.innerHTML = '';
+      if (porCartao.length === 0) {
+        cartaoChart.innerHTML = '<div class="foot">Nada nesse mês.</div>';
+        return;
+      }
+      const slices = porCartao.map((g, i) => ({ ...g, color: `var(--cat-${(i % 5) + 1})` }));
+      const svgWrap = document.createElement('div');
+      svgWrap.innerHTML = pieChartSvg(slices, 168);
+      cartaoChart.appendChild(svgWrap.firstElementChild);
+      const legend = document.createElement('div');
+      legend.className = 'pie-legend';
+      legend.innerHTML = slices.map((g) => wrapMoney(`
+        <div class="pie-legend-row">
+          <span class="dot" style="background:${g.color}"></span>
+          <span class="name">${g.banco}</span>
+          <span class="val">${fmt0(g.total)}</span>
+          <span class="pct">${g.pct.toFixed(1)}%</span>
+        </div>
+      `)).join('');
+      cartaoChart.appendChild(legend);
+    }
 
     function renderGastosTipo(monthIdx) {
       const gastos = data.gastos_por_natureza_by_month[monthIdx];
@@ -658,6 +703,8 @@
         group.appendChild(list);
         container.appendChild(group);
       });
+
+      renderGastosPorCartao(monthIdx);
     }
 
     const select = document.getElementById('tipo-month');

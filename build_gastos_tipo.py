@@ -39,17 +39,37 @@ def group_by_natureza_for_month(items, month_idx, n_months, ref_month_index):
     cartao_por_tipo) em vez do valor_parcela bruto. Usado quando a fatura de referência
     já foi paga e o "próximo" mês em foco muda (ex.: setembro quitado, olhar outubro) —
     Discricionário naturalmente aparece zerado em meses futuros, já que por natureza não
-    recorre (só a fatura em que realmente foi lançado tem esses itens)."""
+    recorre (só a fatura em que realmente foi lançado tem esses itens).
+
+    distribute() sempre grava o valor distribuído como negativo (convenção "saída"),
+    mesmo quando o item original é um crédito/estorno (valor_parcela negativo, ex.:
+    "Credito Telha Norte") — usar abs(vals[...]) direto inverteria o sinal e contaria
+    o estorno como gasto extra em vez de abatimento. Por isso usa-se vals[...] só como
+    indicador "o item está ativo nesse mês" e soma-se o valor_parcela original (com
+    sinal) no total."""
     dist = distribute(items, n_months, ref_month_index)
     out = OrderedDict((nat, OrderedDict()) for nat in NATUREZA_ORDEM)
     for it, vals in dist:
-        val = abs(vals[month_idx]) if month_idx < len(vals) else 0.0
-        if val == 0.0:
+        if month_idx >= len(vals) or vals[month_idx] == 0.0:
             continue
         bucket = out[it["natureza"]]
         acc = bucket.setdefault(it["tipo"] or "(sem tipo)", {"total": 0.0, "itens": []})
-        acc["total"] += val
+        acc["total"] += it["valor_parcela"]
         acc["itens"].append(it["desc"])
+    return out
+
+
+def group_by_banco_for_month(items, month_idx, n_months, ref_month_index):
+    """Mesma ideia de group_by_natureza_for_month, mas agrupando por Banco (qual cartão)
+    em vez de Natureza/Tipo — usado pro gráfico de pizza 'total por cartão'. Mesma
+    ressalva sobre sinal (créditos/estornos abatem, não somam) descrita lá."""
+    dist = distribute(items, n_months, ref_month_index)
+    out = OrderedDict()
+    for it, vals in dist:
+        if month_idx >= len(vals) or vals[month_idx] == 0.0:
+            continue
+        key = it["banco"] or "(sem banco)"
+        out[key] = out.setdefault(key, 0.0) + it["valor_parcela"]
     return out
 
 

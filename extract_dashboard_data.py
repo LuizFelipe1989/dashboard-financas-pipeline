@@ -9,7 +9,7 @@ from finlib import (
 )
 from build_dre import build_rows
 from build_obra import load_items_and_colors, load_item_grid, window_from_grid_by_dre_index, load_janela_pix_manual, payment_summary, SRC_TAB as OBRA_TAB
-from build_gastos_tipo import group_by_natureza_for_month, NATUREZA_ORDEM
+from build_gastos_tipo import group_by_natureza_for_month, group_by_banco_for_month, NATUREZA_ORDEM
 from build_investimentos import (
     load_investimentos, ensure_live_quotes, apply_live_prices, get_fundo_obra_balance,
     compute_rentabilidade_ativa, compute_highlights, SRC_TAB as INVEST_TAB,
@@ -107,6 +107,14 @@ def main():
     dash_ref = ref + 1
 
     card_items = load_card_items(contas_ws)
+    # Contas!Cartão Pessoal é reescrita a cada rodada pra refletir a fatura em aberto
+    # ATUAL (a que vence em dash_ref + 1, ex.: fatura de 10/out reflete o extrato real
+    # do app do banco) — não a fatura ancorada em `ref` (ago./26, mês já fechado usado
+    # pelo resto da DRE/Fluxo de Caixa). Por isso o Gastos por Tipo/gráfico por cartão
+    # usa esse anchor próprio (card_ref_idx) em vez de `ref`: sem ele, distribute()
+    # aplicaria o offset errado e itens perto da última parcela (restantes pequeno)
+    # sumiriam cedo demais da fatura que na verdade os contém.
+    card_ref_idx = dash_ref + 1
     ctipo = cartao_por_tipo(card_items, n)
     cartao_obra_mensal = load_cartao_obra_mensal(apto_ws, months)
     totals = compute_totals(months, proj_data, ctipo, cartao_obra_mensal)
@@ -183,7 +191,7 @@ def main():
     # composição por padrão (mesma lógica usada em build_gastos_tipo.py). Computado pra
     # TODOS os meses (não só o padrão) pra alimentar o seletor de mês do painel.
     def build_gastos_por_natureza(month_idx):
-        by_nat = group_by_natureza_for_month(card_items, month_idx, n, ref)
+        by_nat = group_by_natureza_for_month(card_items, month_idx, n, card_ref_idx)
         grand = sum(acc["total"] for tipos in by_nat.values() for acc in tipos.values()) or 1.0
         out = []
         for nat in NATUREZA_ORDEM:
@@ -201,12 +209,24 @@ def main():
         return out
 
     gastos_por_natureza_by_month = [build_gastos_por_natureza(i) for i in range(n)]
-    fatura_month_idx = dash_ref + 1
+    fatura_month_idx = card_ref_idx
     gastos_por_natureza = gastos_por_natureza_by_month[fatura_month_idx]
-    # Pro alerta de concentração discricionária: usa o mês em foco (dash_ref), não a
-    # fatura em aberto — essa nunca tem discricionário (não recorre por natureza), o
-    # alerta ficaria sempre mudo se usasse a mesma referência do painel de exibição.
-    by_natureza_dash_ref = group_by_natureza_for_month(card_items, dash_ref, n, ref)
+
+    def build_gastos_por_cartao(month_idx):
+        by_banco = group_by_banco_for_month(card_items, month_idx, n, card_ref_idx)
+        grand = sum(by_banco.values()) or 1.0
+        return [
+            {"banco": banco, "total": total, "pct": total / grand * 100}
+            for banco, total in sorted(by_banco.items(), key=lambda kv: -kv[1])
+        ]
+
+    gastos_por_cartao_by_month = [build_gastos_por_cartao(i) for i in range(n)]
+    gastos_por_cartao = gastos_por_cartao_by_month[fatura_month_idx]
+
+    # Pro alerta de concentração discricionária: mesmo anchor do painel (card_ref_idx) —
+    # dash_ref não tem mais dados de cartão próprios desde que o anchor virou card_ref_idx
+    # (fatura em aberto), o alerta ficaria sempre mudo se ainda usasse dash_ref.
+    by_natureza_dash_ref = group_by_natureza_for_month(card_items, card_ref_idx, n, card_ref_idx)
 
     # ---- Obra ----
     obra_ws = sh.worksheet(OBRA_TAB)
@@ -382,6 +402,8 @@ def main():
         "dre_detalhe": dre_detalhe,
         "gastos_por_natureza": gastos_por_natureza,
         "gastos_por_natureza_by_month": gastos_por_natureza_by_month,
+        "gastos_por_cartao": gastos_por_cartao,
+        "gastos_por_cartao_by_month": gastos_por_cartao_by_month,
         "fatura_month_index": fatura_month_idx,
         "obra": obra_out,
         "janela_pagamento": janela_pagamento,
