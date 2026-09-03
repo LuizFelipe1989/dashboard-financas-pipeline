@@ -319,9 +319,29 @@ def main():
     # ---- Investimentos: highlights de eficiência/concentração/liquidez (dados já
     # carregados no início de main(), inclusive para alimentar o financiamento da obra).
     invest_highlights = compute_highlights(invest_categorias, invest_total, invest_quotes, invest_rent_ativa)
+
+    # ---- Consolidado: todo ativo (de todas as categorias, incl. Carteira Maria) numa
+    # lista só, pra acompanhar rentabilidade de cada um sem abrir cada grupo. % Part
+    # recalculado contra o total geral de TUDO — a planilha usa bases diferentes por
+    # seção (Carteira Maria mede % dela mesma, não do total geral), o que não daria pra
+    # misturar numa tabela única sem essa correção.
+    invest_grand_total = sum(it["valor_atual"] for cat in invest_categorias for it in cat["itens"]) or 1.0
+    investimentos_consolidado = sorted((
+        {
+            "nome": it["nome"], "categoria": cat["nome"],
+            "qtd_aquisicao": it["qtd_aquisicao"], "valor_original": it["valor_original"],
+            "qtd": it["qtd"], "valor_atual": it["valor_atual"],
+            "rent_acum_rs": it["rent_acum_rs"], "rent_acum_pct": it["rent_acum_pct"],
+            "pct_part": it["valor_atual"] / invest_grand_total * 100,
+            "liquidado": it["liquidado"], "started_zero": it["started_zero"],
+        }
+        for cat in invest_categorias for it in cat["itens"]
+    ), key=lambda r: -r["valor_atual"])
+
     investimentos_out = {
         "total": invest_total,
         "categorias": invest_categorias,
+        "consolidado": investimentos_consolidado,
         "cotacoes": invest_quotes,
         "rent_ativa": invest_rent_ativa,
         "highlights": invest_highlights,

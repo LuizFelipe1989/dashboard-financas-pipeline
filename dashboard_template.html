@@ -425,6 +425,28 @@ table.detail-table tr.row-total td { font-weight: 600; border-top: 1px solid var
       <h2>Carteira de Investimentos</h2>
       <div class="panel-sub" id="invest-sub">—</div>
       <div class="stat-tiles" id="invest-tiles"></div>
+      <div class="panel-sub-row" style="margin-top:18px;">
+        <h2 style="font-size:15px;margin:0;">Consolidado por ativo</h2>
+      </div>
+      <div class="panel-sub" style="margin-bottom:8px;">Todos os ativos (todas as categorias) numa lista só — rentabilidade de cada um sem precisar abrir grupo por grupo</div>
+      <div class="wide-scroll">
+        <table class="detail-table" id="invest-consolidado-table">
+          <thead>
+            <tr>
+              <th>Descrição Investimento</th>
+              <th class="num">Qtde Aquisição</th>
+              <th class="num">Total Investido</th>
+              <th class="num">Qtde Atual</th>
+              <th class="num">Total Posição Atual</th>
+              <th class="num">Rentabilidade</th>
+              <th class="num">% Participação</th>
+            </tr>
+          </thead>
+          <tbody id="invest-consolidado-body"></tbody>
+        </table>
+      </div>
+      <h2 style="font-size:15px;margin:22px 0 4px;">Por categoria</h2>
+      <div class="panel-sub" style="margin-bottom:8px;">Mesmos ativos, agrupados — clique pra expandir cada categoria</div>
       <div id="invest-groups"></div>
     </section>
     <section class="panel">

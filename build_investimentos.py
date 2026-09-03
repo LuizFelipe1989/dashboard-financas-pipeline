@@ -55,6 +55,7 @@ def _parse_row(values, row_idx):
     valor_atual = br_to_float(cell(11))
     return {
         "nome": cell(1).strip(),
+        "qtd_aquisicao": br_to_float(cell(3)),
         "qtd": br_to_float(cell(9)),
         "pm": br_to_float(cell(10)),
         "valor_original": valor_original,

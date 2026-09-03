@@ -531,6 +531,24 @@
       return `${moneySpan(item.rent_acum_rs)} <span style="color:var(--ink-muted)">(${fmt1pct(item.rent_acum_pct)})</span>`;
     }
 
+    // Consolidado: todo ativo numa lista só, ordenado por posição atual — evita ter que
+    // abrir cada categoria pra comparar rentabilidade.
+    const consolidadoBody = document.getElementById('invest-consolidado-body');
+    (inv.consolidado || []).forEach((it) => {
+      const tr = document.createElement('tr');
+      tr.className = 'row-line';
+      tr.innerHTML = `
+        <td>${it.nome}<div style="color:var(--ink-muted);font-size:11px;">${it.categoria}</div></td>
+        <td class="num">${it.qtd_aquisicao ? it.qtd_aquisicao : '—'}</td>
+        <td class="num">${fmt0(it.valor_original)}</td>
+        <td class="num">${it.qtd ? it.qtd : '—'}</td>
+        <td class="num">${fmt0(it.valor_atual)}</td>
+        <td class="num">${rentCell(it)}</td>
+        <td class="num">${fmt1pct(it.pct_part)}</td>
+      `;
+      consolidadoBody.appendChild(tr);
+    });
+
     function renderGroup(container, group, openByDefault) {
       const details = document.createElement('details');
       details.className = 'invest-group';
