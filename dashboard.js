@@ -278,10 +278,14 @@
   (function () {
     const svg = document.getElementById('cartao-obra-chart');
     const series = data.cartao_obra_mensal;
-    const mesRefValor = abs(series[REF]);
+    // A fatura do mês em foco (REF) já foi paga antecipada — nada mais a vencer nela,
+    // então a referência aqui passa a ser a próxima fatura em aberto (REF + 1), mesma
+    // lógica já aplicada em Gastos por Tipo e na Janela de Pagamento.
+    const cartaoRefIdx = Math.min(REF + 1, N - 1);
+    const mesRefValor = abs(series[cartaoRefIdx]);
     const receitaMedia = data.months.reduce((s, _, i) => s + data.entradas[i], 0) / N;
     document.getElementById('cartao-obra-sub').innerHTML = wrapMoney(
-      `${fmt0(mesRefValor)} em ${monthShort(data.months[REF])} · fonte: Fluxo_Apto_Realizado (linha 55) · pico de ${fmt0(Math.min(...series))} no horizonte`);
+      `${fmt0(mesRefValor)} em ${monthShort(data.months[cartaoRefIdx])} · fonte: Fluxo_Apto_Realizado (linha 55) · pico de ${fmt0(Math.min(...series))} no horizonte`);
 
     const W = 340, H = 220, ML = 46, MR = 10, MT = 14, MB = 26;
     const plotW = W - ML - MR, plotH = H - MT - MB;
