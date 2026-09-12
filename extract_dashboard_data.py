@@ -126,6 +126,12 @@ def main():
     invest_tickers = sorted({it["ticker"] for cat in invest_categorias for it in cat["itens"] if it["ticker"]})
     invest_quotes = ensure_live_quotes(sh, sheets_api, invest_tickers)
     apply_live_prices(invest_categorias, invest_quotes)
+    # "Total Investido" do dashboard precisa refletir as correções de cotação ao vivo
+    # (apply_live_prices só atualiza as categorias, não invest_total — que vem direto
+    # da linha TOTAL da planilha, com a fórmula "Valor Atual" das ações quebrada/stale).
+    # Sem isso o card ficava subestimado sempre que a cotação ao vivo diferia do que a
+    # própria planilha calculava.
+    invest_total["valor_atual"] = sum(cat["valor_atual"] for cat in invest_categorias)
     invest_rent_ativa = compute_rentabilidade_ativa(invest_categorias)
     fundo_obra_balance = get_fundo_obra_balance(invest_categorias)
 
