@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 from finlib import (
-    get_clients, fmt_brl, CONTAS_TAB, PROJ_TAB, REF_MONTH_INDEX,
+    get_clients, fmt_brl, CONTAS_TAB, PROJ_TAB, REF_MONTH_INDEX, CARD_REF_MONTH_INDEX,
     load_card_items, load_projecao, distribute, red_negative_rule,
 )
 
@@ -81,12 +81,11 @@ def main():
     n = len(months)
     items = load_card_items(contas_ws)
 
-    # A fatura do mês de referência (REF_MONTH_INDEX) já foi paga antecipada — a próxima
-    # fatura em aberto é a do mês seguinte, então a "fatura atual" passa a mostrar essa
-    # composição em vez do snapshot bruto. Discricionário fica zerado ali por natureza
-    # (não recorre), o que é esperado — só aparece no mês em que foi realmente lançado.
-    fatura_month_idx = REF_MONTH_INDEX + 1
-    by_natureza = group_by_natureza_for_month(items, fatura_month_idx, n, REF_MONTH_INDEX)
+    # Contas!Cartão Pessoal reflete a fatura em ABERTO atual (CARD_REF_MONTH_INDEX), não a
+    # fatura já fechada de REF_MONTH_INDEX — mesmo anchor usado pelo dashboard (extract_
+    # dashboard_data.py), pra essa aba bater exatamente com o painel "Gastos por Tipo".
+    fatura_month_idx = CARD_REF_MONTH_INDEX
+    by_natureza = group_by_natureza_for_month(items, fatura_month_idx, n, CARD_REF_MONTH_INDEX)
     grand_total = sum(acc["total"] for tipos in by_natureza.values() for acc in tipos.values()) or 1.0
 
     header = ["Natureza / Tipo", "Total", "% do Total", "Itens"]

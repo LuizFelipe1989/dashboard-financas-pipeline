@@ -3,6 +3,7 @@ from collections import OrderedDict
 
 from finlib import (
     get_clients, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB, DESPESAS_CASA_TAB, REF_MONTH_INDEX,
+    CARD_REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals, fmt_brl,
     apply_despesas_casa_handover, neutralize_investimentos_row, compute_financiamento_obra,
     variavel_disponivel_para_obra,
@@ -114,8 +115,8 @@ def main():
     # usa esse anchor próprio (card_ref_idx) em vez de `ref`: sem ele, distribute()
     # aplicaria o offset errado e itens perto da última parcela (restantes pequeno)
     # sumiriam cedo demais da fatura que na verdade os contém.
-    card_ref_idx = dash_ref + 1
-    ctipo = cartao_por_tipo(card_items, n)
+    card_ref_idx = CARD_REF_MONTH_INDEX
+    ctipo = cartao_por_tipo(card_items, n, ref_month_index=card_ref_idx)
     cartao_obra_mensal = load_cartao_obra_mensal(apto_ws, months)
     totals = compute_totals(months, proj_data, ctipo, cartao_obra_mensal)
 

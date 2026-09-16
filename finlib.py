@@ -20,6 +20,13 @@ CARD_TABLE_COL_BANCO = 12
 CARD_TABLE_FIRST_ROW = 3  # 1-indexed sheet row
 
 REF_MONTH_INDEX = 1  # 'ago./26' — mês de referência para contar parcelas restantes; ajuste aqui se necessário
+# Contas!Cartão Pessoal é reescrita a cada rodada pra refletir a fatura em ABERTO atual
+# (a que vence dia 10 do mês seguinte), não a fatura já fechada de REF_MONTH_INDEX — por
+# isso "Parcela X/Y" nas descrições conta a partir desse mês, dois à frente do anchor
+# fechado. cartao_por_tipo() precisa desse mesmo anchor (não o default REF_MONTH_INDEX)
+# pra bater com o snapshot de Gastos por Tipo/gráfico por cartão, senão o Custo Variável
+# da DRE mostra a distribuição de parcelas ~2 meses defasada da fatura real.
+CARD_REF_MONTH_INDEX = REF_MONTH_INDEX + 2  # 'out./26' — mês da fatura aberta refletida em Contas
 PARCELA_RE = re.compile(r"[Pp]arcela\s+(\d+)\s*/\s*(\d+)")
 
 # Assinaturas (natureza "Fixo Mensal") que NÃO devem recorrer nos meses seguintes:

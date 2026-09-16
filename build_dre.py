@@ -1,6 +1,6 @@
 from finlib import (
     get_clients, fmt_brl, GROUPS, LABEL_OVERRIDES, PROJ_TAB, CONTAS_TAB, FLUXO_APTO_TAB,
-    DESPESAS_CASA_TAB, REF_MONTH_INDEX,
+    DESPESAS_CASA_TAB, REF_MONTH_INDEX, CARD_REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, compute_totals,
     apply_despesas_casa_handover, neutralize_investimentos_row, red_negative_rule,
 )
@@ -83,7 +83,7 @@ def main():
     apply_despesas_casa_handover(months, data, despesas_casa_ws)
     neutralize_investimentos_row(data)
     card_items = load_card_items(contas_ws)
-    ctipo = cartao_por_tipo(card_items, len(months))
+    ctipo = cartao_por_tipo(card_items, len(months), ref_month_index=CARD_REF_MONTH_INDEX)
     cartao_obra_mensal = load_cartao_obra_mensal(apto_ws, months)
     totals = compute_totals(months, data, ctipo, cartao_obra_mensal)
     rows = build_rows(months, data, ctipo, cartao_obra_mensal, totals)

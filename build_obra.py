@@ -11,17 +11,22 @@ LAST_ITEM_ROW = 80  # limite superior generoso — o fim real é achado dinamica
 MONTH_COL_START = "J"
 MONTH_COL_END = "V"
 COL_ITENS, COL_MODALIDADE, COL_CLASSIFICACAO, COL_TIPO, COL_EMPRESA = "B", "C", "D", "E", "F"
-COL_TOTAL_PREVISTO = "I"
+# Coluna I é um orçamento inicial digitado à mão e fica desatualizada conforme o item
+# sofre reajustes reais (ex.: "Civil (Demolição)" orçado em 6.825 mas já realizado+
+# projetado em 7.800). Coluna W (=SUM(J:V), o próprio somatório do cronograma mensal
+# real da linha) é a fonte confiável — é o que o usuário vê linha a linha na planilha.
+COL_TOTAL_PREVISTO = "W"
 
 GREEN = (0.85, 0.92, 0.83)   # pago
-PINK = (0.92, 0.82, 0.86)    # pendente / próximo
+YELLOW = (1.0, 0.95, 0.8)    # janela de pagamento do mês corrente, ainda pendente
+PINK = (0.92, 0.82, 0.86)    # próximos meses (a partir do mês seguinte), ainda não vencido
 
 
 def classify_color(bg):
     rgb = (round(bg.get("red", 1), 2), round(bg.get("green", 1), 2), round(bg.get("blue", 1), 2))
     if rgb == GREEN:
         return "PAGO"
-    if rgb == PINK:
+    if rgb == YELLOW:
         return "PENDENTE"
     return "FUTURO"
 
@@ -42,7 +47,7 @@ def load_items_and_colors(sh, sheets_api, ws):
         classificacao = vals[3] if len(vals) > 3 else ""
         tipo = vals[4] if len(vals) > 4 else ""
         empresa = vals[5] if len(vals) > 5 else ""
-        previsto = br_to_float(vals[8]) if len(vals) > 8 else 0.0
+        previsto = br_to_float(vals[22]) if len(vals) > 22 else 0.0  # col W = SUM(J:V)
         items.append({
             "row": r, "item": itens, "modalidade": modalidade,
             "classificacao": classificacao, "tipo": tipo, "empresa": empresa,
@@ -330,7 +335,7 @@ def main():
         requests.append({
             "repeatCell": {
                 "range": {"sheetId": sheet_id, "startRowIndex": start, "endRowIndex": end, "startColumnIndex": 6, "endColumnIndex": 7},
-                "cell": {"userEnteredFormat": {"backgroundColor": {"red": PINK[0], "green": PINK[1], "blue": PINK[2]}}},
+                "cell": {"userEnteredFormat": {"backgroundColor": {"red": YELLOW[0], "green": YELLOW[1], "blue": YELLOW[2]}}},
                 "fields": "userEnteredFormat.backgroundColor",
             }
         })
