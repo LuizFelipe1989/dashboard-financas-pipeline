@@ -8,13 +8,14 @@ from finlib import (
 OUT_TAB = "DRE_Mensal"
 
 GRUPO_LABEL = {
-    "DEDUCOES": "Dedução", "MORADIA_GABI": "Informativo (Gabi)", "FIXO": "Fixo",
-    "VARIAVEL": "Variável", "VARIAVEL_OBRA": "Variável Obra", "RECEITA_BRUTA": "Receita",
+    "DEDUCOES": "Dedução", "MORADIA_GABI": "Informativo (Gabi)", "FIXO_GABI": "Informativo (Gabi)",
+    "FIXO": "Fixo", "VARIAVEL": "Variável", "VARIAVEL_OBRA": "Variável Obra", "RECEITA_BRUTA": "Receita",
     "OUTRAS_RECEITAS": "Receita", "INVESTIMENTOS": "Investimento",
 }
 
 SUBTOTAL_LABEL = {
     "DEDUCOES": "Salário Líquido", "MORADIA_GABI": "Subtotal Moradia (Gabi)",
+    "FIXO_GABI": "Subtotal Custos Fixos da Casa (Gabi)",
     "FIXO": "Subtotal Despesas Fixas", "VARIAVEL": "Subtotal Despesas Variáveis",
     "VARIAVEL_OBRA": "Subtotal Despesas Variável Obra", "OUTRAS_RECEITAS": "Subtotal Outras Receitas",
     "INVESTIMENTOS": "Subtotal Investimentos",

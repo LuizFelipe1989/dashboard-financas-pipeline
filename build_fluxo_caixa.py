@@ -44,21 +44,22 @@ def main():
         months, totals["receita_liquida"], variavel_obra_calc, cartao_obra_mensal, totals["obra_pix"], **fin_kwargs
     )
 
-    # Fluxo de caixa parte diretamente da DRE: Entradas − Saídas = Saldo Líquido.
-    # O valor coberto pelo investimento (fin.saque_mensal) é somado de volta —
-    # não sai do bolso, então não pode aparecer como perda de caixa aqui (é o
-    # mesmo ajuste que faz este saldo bater com o de Financiamento da Obra).
-    # Saldo Acumulado parte do saldo de abertura real em jul./26 (posição bruta do fundo
-    # da obra, ~R$144k) em vez de ancorar no saldo do extrato em ago./26 — pedido
-    # explícito do usuário, mesmo com os dois saldos sendo de contas diferentes (fundo
-    # de investimento vs. conta corrente) e por isso destoando do extrato real.
-    saldo_mes = [sl + inv + sq for sl, inv, sq in zip(totals["saldo_liquido"], totals["investimentos"], fin["saque_mensal"])]
+    # Conta corrente e fundo da obra são a mesma reserva na prática (o fundo só rende até
+    # ser resgatado automaticamente pra pagar as contas) — por isso "Saldo Acumulado" é o
+    # TOTAL combinado das duas (conta + fundo), não só a conta corrente isolada.
+    # totals["saldo_liquido"] já reflete o custo total da obra (saída completa, não só a
+    # parte que sobra do salário), então acumular direto já dá o total combinado: se X é
+    # o saque do fundo no mês, a conta cresce X a mais (não precisou desembolsar) e o
+    # fundo cai X a menos — a soma das duas cancela o X e sobra só saldo_líquido.
+    saldo_mes = totals["saldo_liquido"]
     raw_cum = []
-    running = investimento_posicao_inicial if investimento_posicao_inicial else 0.0
+    running = 0.0
     for v in saldo_mes:
         running += v
         raw_cum.append(running)
-    saldo_acumulado = raw_cum
+    saldo_combinado_ref = fin["saldo_disponivel_imediato"] + fin["investimento_bloqueado_total"]
+    anchor = raw_cum[REF_MONTH_INDEX] - saldo_combinado_ref
+    saldo_acumulado = [v - anchor for v in raw_cum]
 
     header = ["Linha"] + months + ["TOTAL"]
     out_values = [header]
@@ -98,13 +99,11 @@ def main():
     add_section("(=) SALDO LÍQUIDO (ENTRADAS − SAÍDAS)")
     add_row("TOTAL", "Saldo Líquido", totals["saldo_liquido"])
 
-    add_section("(-) INVESTIMENTOS / (+) COBERTO PELO INVESTIMENTO DA OBRA")
-    add_row("LINE", "Investimentos", totals["investimentos"])
-    add_row("LINE", "Coberto pelo investimento da obra (ver Financiamento da Obra)", fin["saque_mensal"])
+    add_section("(INFORMATIVO) COBERTO PELO FUNDO DA OBRA (VER FINANCIAMENTO DA OBRA)")
+    add_row("REF", "Coberto pelo fundo — não sai da conta corrente, sai do fundo (mesma reserva)", fin["saque_mensal"])
 
     add_section("(=) RESULTADO FINAL DO MÊS")
-    add_row("TOTAL", "Saldo do Mês", saldo_mes)
-    add_row("TOTAL", f"Saldo Acumulado (abertura de {fmt_brl(investimento_posicao_inicial)} em {months[investimento_mes_inicial_idx]})", saldo_acumulado)
+    add_row("TOTAL", f"Saldo Acumulado (conta corrente + fundo da obra, ancorado no saldo real de {months[REF_MONTH_INDEX]})", saldo_acumulado)
 
     try:
         out_ws = sh.worksheet(OUT_TAB)
@@ -149,9 +148,9 @@ def main():
     print(f"Entradas (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['entradas'][REF_MONTH_INDEX])}")
     print(f"Saídas (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['saidas'][REF_MONTH_INDEX])}")
     print(f"Saldo Líquido (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['saldo_liquido'][REF_MONTH_INDEX])}")
-    print(f"Saldo Acumulado (mês ref, partindo de {fmt_brl(investimento_posicao_inicial)} em {months[investimento_mes_inicial_idx]}): {fmt_brl(saldo_acumulado[REF_MONTH_INDEX])} (extrato real: {fmt_brl(fin['saldo_disponivel_imediato'])})")
-    print(f"Saldo Acumulado (último mês, {months[-1]}): {fmt_brl(saldo_acumulado[-1])}")
-    print(f"[double-check] Saldo Acumulado + Saldo Investimento (último mês): {fmt_brl(saldo_acumulado[-1] + fin['saldo_investimento'][-1])}")
+    print(f"Saldo Acumulado (combinado conta+fundo, mês ref, ancorado no saldo real): {fmt_brl(saldo_acumulado[REF_MONTH_INDEX])}")
+    print(f"Saldo Acumulado (combinado, último mês, {months[-1]}): {fmt_brl(saldo_acumulado[-1])}")
+    print(f"  [info] Só na conta corrente (combinado − fundo): {fmt_brl(saldo_acumulado[-1] - fin['saldo_investimento'][-1])}")
 
 
 if __name__ == "__main__":

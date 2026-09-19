@@ -148,18 +148,22 @@ def main():
     fin = compute_financiamento_obra(
         months, totals["receita_liquida"], variavel_obra_calc, cartao_obra_mensal, totals["obra_pix"], **fin_kwargs
     )
-    saldo_mes = [sl + inv + sq for sl, inv, sq in zip(totals["saldo_liquido"], totals["investimentos"], fin["saque_mensal"])]
-    # Saldo Acumulado agora parte do saldo de abertura real em jul./26 (posição bruta do
-    # fundo da obra, ~R$144k) em vez de ancorar no saldo do extrato em ago./26 — pedido
-    # explícito do usuário, mesmo sabendo que os dois saldos são de contas diferentes
-    # (fundo de investimento vs. conta corrente) e por isso destoam do extrato real.
+    # Conta corrente e fundo da obra são a mesma reserva na prática (o fundo só rende até
+    # ser resgatado automaticamente pra pagar as contas) — por isso "Saldo Acumulado" (o
+    # número que o usuário acompanha como "meu saldo") é o TOTAL combinado das duas
+    # (conta + fundo), não só a conta corrente isolada. saldo_liquido já reflete o custo
+    # total da obra (saída completa, não só a parte que sobra do salário), então somar
+    # direto sem o ajuste de saque_mensal já dá o total combinado — a prova: se X é o
+    # saque do fundo no mês, a conta cresce X a mais (não precisou desembolsar) e o fundo
+    # cai X a menos; a soma das duas cancela o X e sobra só saldo_liquido, mês a mês.
     raw_cum = []
-    running = investimento_posicao_inicial if investimento_posicao_inicial else 0.0
-    for v in saldo_mes:
+    running = 0.0
+    for v in totals["saldo_liquido"]:
         running += v
         raw_cum.append(running)
-    saldo_acumulado = raw_cum
-    saldo_acumulado_gap_extrato = saldo_acumulado[ref] - fin["saldo_disponivel_imediato"]
+    saldo_combinado_ref = fin["saldo_disponivel_imediato"] + fin["investimento_bloqueado_total"]
+    anchor = raw_cum[ref] - saldo_combinado_ref
+    saldo_acumulado = [v - anchor for v in raw_cum]
 
     # ---- DRE resumo (mês em foco: dash_ref = set./26, o próximo a acontecer) — Custo
     # Obra separado da Margem Líquida, já que a obra tem prazo pra terminar e não
@@ -409,7 +413,6 @@ def main():
         "custos_variaveis": totals["variavel"],
         "cartao_obra_mensal": cartao_obra_mensal,
         "investimentos_dre": totals["investimentos"],
-        "saldo_mes": saldo_mes,
         "saldo_acumulado": saldo_acumulado,
         "dre_resumo": dre_resumo,
         "dre_resumo_by_month": dre_resumo_by_month,
@@ -445,14 +448,14 @@ def main():
     print(f"Cartão Obra (mês em foco, via Fluxo_Apto_Realizado linha 55): {cartao_obra_mensal[dash_ref]:.2f}")
     print(f"Moradia paga por Gabi (só Saúde, mês em foco): {totals['moradia_gabi'][dash_ref]:.2f}")
     print(f"Saldo Acumulado projetado ({months[dash_ref]}): {saldo_acumulado[dash_ref]:.2f}")
-    print(f"  [info] Saldo Acumulado partindo de {investimento_posicao_inicial:.2f} em {months[investimento_mes_inicial_idx]} — em {months[ref]} projeta {saldo_acumulado[ref]:.2f} vs. extrato real {fin['saldo_disponivel_imediato']:.2f} (gap {saldo_acumulado_gap_extrato:.2f})")
+    print(f"  [info] Saldo Acumulado já é o total combinado (conta + fundo); só na conta corrente seria {saldo_acumulado[dash_ref] - fin['saldo_investimento'][dash_ref]:.2f}")
     print(f"Janela de pagamento {janela_pagamento['mes']}: {len(janela_pagamento['itens'])} itens, total {janela_pagamento['total']:.2f}")
     for g in gastos_por_natureza:
         print(f"  Gastos {g['natureza']}: {g['total']:.2f} ({g['pct']:.1f}%)")
     print(f"Pagamentos -> Pago total: {pagamentos['pago_total']:.2f} | Pix pendente (total previsto): {pagamentos['pix_pendente_total']:.2f} | Cartão futuro: {pagamentos['cartao_futuro']:.2f}")
     print(f"Financiamento obra: saldo em {months[jul27_idx]}: {fin['saldo_investimento'][jul27_idx]:.2f} (partindo de {fin['investimento_bloqueado_total']:.2f}, posição inicial {months[investimento_mes_inicial_idx]}: {investimento_posicao_inicial:.2f})")
     print(f"Saldo Acumulado final ({months[-1]}): {saldo_acumulado[-1]:.2f}")
-    print(f"[double-check] Saldo Acumulado + Saldo Investimento (último mês): {(saldo_acumulado[-1] + fin['saldo_investimento'][-1]):.2f}")
+    print(f"[double-check] Saldo Acumulado (combinado) − Saldo Investimento (só fundo) = só conta corrente (último mês): {(saldo_acumulado[-1] - fin['saldo_investimento'][-1]):.2f}")
     print(f"Alertas gerados: {len(alerts)}")
     print(f"Investimentos: total atual {fmt_brl(invest_total['valor_atual'])} | rentabilidade posições ativas {invest_rent_ativa['rent_pct']} | highlights: {len(invest_highlights)}")
 

@@ -129,8 +129,8 @@
     const saldoIdx = isAcc ? N - 1 : monthIdx;
     const saldoVal = data.saldo_acumulado[saldoIdx];
     const saldoLabel = isAcc
-      ? 'Saldo projetado · ' + monthShort(data.months[N - 1])
-      : 'Saldo acumulado · ' + monthShort(data.months[monthIdx]);
+      ? 'Saldo projetado (conta + fundo) · ' + monthShort(data.months[N - 1])
+      : 'Saldo acumulado (conta + fundo) · ' + monthShort(data.months[monthIdx]);
     kpiRow.appendChild(kpiTile({
       label: 'Entradas do mês', value: fmt0(receitaMes),
       foot: 'Salário líquido',
@@ -895,8 +895,8 @@
   // ---------- footnotes ----------
   document.getElementById('footnotes').innerHTML = wrapMoney(`
     <div><b>Seletor de mês</b> (no topo): "Acumulado" é a visão padrão — mês em foco (${monthShort(data.months[REF])}) nos Indicadores/DRE/Janela, com o Saldo Projetado olhando pro horizonte inteiro (${monthShort(data.months[N - 1])}). Selecionando um mês específico, essas 3 seções trocam pra visão daquele mês (Saldo vira "Acumulado até ali"); o resto do dashboard (Obra, Investimentos, Fluxo de Caixa, Cartão Obra, Financiamento da Obra, Alertas) continua mostrando o estado atual/horizonte, por serem visões acumuladas ou multi-mês.</div>
-    <div><b>Mês em foco</b> (indicadores, DRE Resumida, janela de pagamento, distribuição de parcelas de cartão): ${monthShort(data.months[REF])} — o próximo mês a acontecer. O mês anterior (${monthShort(data.months[data.anchor_month_index])}) já foi realizado.</div>
-    <div><b>Saldo Acumulado</b> parte do saldo de abertura em ${monthShort(data.financiamento_obra.posicao_inicial_mes)} (${fmt0(data.financiamento_obra.posicao_inicial)}) e soma o Saldo do Mês adiante — não é mais ancorado no saldo do extrato bancário em ${monthShort(data.months[data.anchor_month_index])}, então destoa dele por natureza (contas diferentes).</div>
+    <div><b>Mês em foco</b> (indicadores, DRE Resumida, janela de pagamento, distribuição de parcelas de cartão): ${monthShort(data.months[REF])} — o próximo mês a acontecer. O saldo real conhecido é ancorado em ${monthShort(data.months[data.anchor_month_index])}, que já foi realizado.</div>
+    <div><b>Saldo Acumulado</b> (Fluxo de Caixa) é o total combinado — conta corrente + fundo da obra — porque são a mesma reserva na prática (o fundo só rende até ser resgatado automaticamente pra pagar as contas); ancorado na soma dos dois saldos reais em ${monthShort(data.months[data.anchor_month_index])}. O gráfico <b>Financiamento da Obra</b> mostra só a fatia que está no fundo especificamente (parte desse total, não um saldo à parte) — a diferença entre os dois é o que está na conta corrente.</div>
     <div><b>Janela de pagamento</b> lista os itens da Obra (Fluxo_Apto_Realizado) com valor lançado no mês em foco. Pix usa a tabela "Janela de Pagamentos" com datas reais quando ela existe pro mês (senão cai para o mês inteiro, por cor de célula); Cartão sempre por cor de célula — só dá o mês, a parcela específica não tem dia marcado.</div>
     <div><b>Apto Saúde</b> devolvido em ago./26 — a partir de set./26 restou só o Cartão Crédito Casa, projetado mês a mês pelas parcelas pendentes em Despesas_Casa (aba própria); as demais linhas (aluguel/condomínio/Enel/internet) zeram. Informativo, paga a Gabi, não entra nas saídas.</div>
     <div><b>Cartão Obra</b> usa o valor mensal já projetado em Fluxo_Apto_Realizado (linha 55 — Cartão); a Margem Líquida da DRE Resumida separa esse custo (Custo Obra) por ter prazo pra terminar — a versão que inclui a obra continua na tabela de detalhamento.</div>

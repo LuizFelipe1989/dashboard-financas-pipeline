@@ -63,14 +63,15 @@ GROUPS = [
     ("Enel Saúde", "MORADIA_GABI"),
     ("Internet - Saúde", "MORADIA_GABI"),
     ("Cartão Crédito Casa", "MORADIA_GABI"),
+    ("(-) CUSTOS FIXOS DA CASA (PAGO POR GABI — INFORMATIVO, NÃO ENTRA NA MARGEM)", None),
+    ("Financiamento VM", "FIXO_GABI"),
+    ("Condominio VM", "FIXO_GABI"),
+    ("IPTU", "FIXO_GABI"),
+    ("Energia Eletrica VM", "FIXO_GABI"),
+    ("ComGás VM", "FIXO_GABI"),
+    ("Internet VM", "FIXO_GABI"),
+    ("Seguro Carro Taos", "FIXO_GABI"),
     ("(-) CUSTOS FIXOS", None),
-    ("Financiamento VM", "FIXO"),
-    ("Condominio VM", "FIXO"),
-    ("IPTU", "FIXO"),
-    ("Energia Eletrica VM", "FIXO"),
-    ("ComGás VM", "FIXO"),
-    ("Internet VM", "FIXO"),
-    ("Seguro Carro Taos", "FIXO"),
     ("Previdencia Privada BB", "FIXO"),
     ("Celular", "FIXO"),
     ("Academia", "FIXO"),
@@ -435,6 +436,7 @@ def compute_totals(months, data, cartao_tipo, cartao_obra_mensal=None):
     deducoes = group_sum(data, "DEDUCOES", n)
     receita_liquida = [a + b for a, b in zip(receita_bruta, deducoes)]
     fixo = group_sum(data, "FIXO", n)
+    fixo_gabi = group_sum(data, "FIXO_GABI", n)
     moradia_gabi = group_sum(data, "MORADIA_GABI", n)
     variavel_sem_cartao = group_sum(data, "VARIAVEL", n)
     variavel = [a + b for a, b in zip(variavel_sem_cartao, cartao_pessoal_total)]
@@ -443,7 +445,7 @@ def compute_totals(months, data, cartao_tipo, cartao_obra_mensal=None):
     outras_receitas = group_sum(data, "OUTRAS_RECEITAS", n)
     investimentos = group_sum(data, "INVESTIMENTOS", n)
 
-    # moradia_gabi is informational only (paid by Gabi) — excluded from margem_liquida.
+    # moradia_gabi e fixo_gabi são informativos só (pagos pela Gabi) — excluídos da margem.
     margem_liquida = [
         rl + orc + f + v + vo + inv
         for rl, orc, f, v, vo, inv in zip(receita_liquida, outras_receitas, fixo, variavel, variavel_obra, investimentos)
@@ -453,7 +455,7 @@ def compute_totals(months, data, cartao_tipo, cartao_obra_mensal=None):
     saldo_liquido = [e + s for e, s in zip(entradas, saidas)]
     return {
         "receita_bruta": receita_bruta, "deducoes": deducoes, "receita_liquida": receita_liquida,
-        "fixo": fixo, "moradia_gabi": moradia_gabi, "variavel_sem_cartao": variavel_sem_cartao,
+        "fixo": fixo, "fixo_gabi": fixo_gabi, "moradia_gabi": moradia_gabi, "variavel_sem_cartao": variavel_sem_cartao,
         "cartao_pessoal_total": cartao_pessoal_total, "cartao_obra_mensal": cartao_obra_mensal,
         "variavel": variavel, "obra_pix": obra_pix, "variavel_obra": variavel_obra,
         "outras_receitas": outras_receitas,
