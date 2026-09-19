@@ -350,9 +350,28 @@ def variavel_disponivel_para_obra(data, totals, n):
     return [v - g for v, g in zip(totals["variavel"], gabi_var)]
 
 
+def _saque_obra_mes(i, running, receita_liquida, variavel_pessoal, cartao_obra_mensal, obra_pix_mensal):
+    """Um mês do modelo de saque do fundo da obra: salário líquido cobre primeiro as
+    despesas variáveis pessoais, depois o cartão da obra; o fundo só cobre o que falta
+    (Pix inteiro + parte do cartão que o salário não deu conta), limitado ao saldo
+    disponível. Fatorado pra ser reaplicado tanto na reconstrução histórica (a partir
+    da posição bruta inicial do fundo) quanto na projeção futura (a partir do saldo
+    real e vivo lido da planilha)."""
+    salario_disponivel = max(receita_liquida[i] - abs(variavel_pessoal[i]), 0.0)
+    cartao = abs(cartao_obra_mensal[i])
+    pix = abs(obra_pix_mensal[i])
+    pago_cartao_salario = min(salario_disponivel, cartao)
+    cartao_faltante = cartao - pago_cartao_salario
+    sobra_salario = salario_disponivel - pago_cartao_salario
+    necessidade = max(pix + cartao_faltante - sobra_salario, 0.0)
+    saque = min(necessidade, max(running, 0.0))
+    return saque, running - saque
+
+
 def compute_financiamento_obra(months, receita_liquida, variavel_pessoal, cartao_obra_mensal, obra_pix_mensal,
                                 ref_month_index=REF_MONTH_INDEX,
-                                saldo_disponivel=SALDO_DISPONIVEL_IMEDIATO, investimento_total=INVESTIMENTO_BLOQUEADO_TOTAL):
+                                saldo_disponivel=SALDO_DISPONIVEL_IMEDIATO, investimento_total=INVESTIMENTO_BLOQUEADO_TOTAL,
+                                historical_start_balance=None, historical_start_index=0):
     """Cada mês (a partir do mês SEGUINTE ao de referência — o saldo atual do fundo já
     reflete os pagamentos até o mês de referência inclusive), o salário líquido cobre
     primeiro as despesas variáveis pessoais (custos fixos ficam de fora dessa conta —
@@ -364,24 +383,31 @@ def compute_financiamento_obra(months, receita_liquida, variavel_pessoal, cartao
     'saque_mensal' é quanto o fundo cobriu (somado de volta no Fluxo de Caixa, já que
     essa parte não sai do bolso); o resto da parcela do cartão paga pelo próprio
     salário já está refletido no fluxo normal (entra como receita, sai como despesa),
-    sem precisar de tratamento especial aqui."""
+    sem precisar de tratamento especial aqui.
+
+    historical_start_balance: se informado (ex.: R$144.007,23, a posição bruta do fundo
+    em jul./26 antes da obra consumi-lo), reconstrói os meses ANTES de ref_month_index
+    aplicando esse mesmo modelo de saque a partir desse saldo inicial — em vez de ficarem
+    "achatados" no saldo atual (investimento_total). ref_month_index em diante continua
+    ancorado exatamente no saldo real e vivo lido da planilha, sem mudança: essa
+    reconstrução é só uma ponte histórica ilustrativa, não influencia a projeção futura."""
     n = len(months)
     saque_mensal = [0.0] * n
     saldo_investimento = [investimento_total] * n
     running = investimento_total
     for i in range(n):
         if i > ref_month_index:
-            salario_disponivel = max(receita_liquida[i] - abs(variavel_pessoal[i]), 0.0)
-            cartao = abs(cartao_obra_mensal[i])
-            pix = abs(obra_pix_mensal[i])
-            pago_cartao_salario = min(salario_disponivel, cartao)
-            cartao_faltante = cartao - pago_cartao_salario
-            sobra_salario = salario_disponivel - pago_cartao_salario
-            necessidade = max(pix + cartao_faltante - sobra_salario, 0.0)
-            saque = min(necessidade, max(running, 0.0))
-            running -= saque
+            saque, running = _saque_obra_mes(i, running, receita_liquida, variavel_pessoal, cartao_obra_mensal, obra_pix_mensal)
             saque_mensal[i] = saque
         saldo_investimento[i] = running
+
+    if historical_start_balance is not None:
+        hrunning = historical_start_balance
+        for i in range(historical_start_index, ref_month_index):
+            saque, hrunning = _saque_obra_mes(i, hrunning, receita_liquida, variavel_pessoal, cartao_obra_mensal, obra_pix_mensal)
+            saque_mensal[i] = saque
+            saldo_investimento[i] = hrunning
+
     return {"saque_mensal": saque_mensal, "saldo_investimento": saldo_investimento,
             "saldo_disponivel_imediato": saldo_disponivel, "investimento_bloqueado_total": investimento_total}
 

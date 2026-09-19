@@ -19,6 +19,12 @@ def main():
 
     months, proj_data = load_projecao(proj_ws)
     apply_despesas_casa_handover(months, proj_data, despesas_casa_ws)
+    # Captura o lançamento bruto de 'Investimentos' (posição inicial do fundo da obra,
+    # ~R$144k em jul./26) antes de zerá-lo — usado como saldo de abertura do Saldo
+    # Acumulado abaixo (ver extract_dashboard_data.py, mesma lógica).
+    raw_investimentos = list(proj_data.get("Investimentos", []))
+    investimento_posicao_inicial = next((abs(v) for v in raw_investimentos if v), 0.0)
+    investimento_mes_inicial_idx = next((i for i, v in enumerate(raw_investimentos) if v), 0)
     neutralize_investimentos_row(proj_data)
     n = len(months)
 
@@ -30,6 +36,9 @@ def main():
     invest_categorias, _invest_total = load_investimentos(sh.worksheet(INVEST_TAB))
     fundo_obra_balance = get_fundo_obra_balance(invest_categorias)
     fin_kwargs = {"investimento_total": fundo_obra_balance} if fundo_obra_balance is not None else {}
+    if investimento_posicao_inicial:
+        fin_kwargs["historical_start_balance"] = investimento_posicao_inicial
+        fin_kwargs["historical_start_index"] = investimento_mes_inicial_idx
     variavel_obra_calc = variavel_disponivel_para_obra(proj_data, totals, n)
     fin = compute_financiamento_obra(
         months, totals["receita_liquida"], variavel_obra_calc, cartao_obra_mensal, totals["obra_pix"], **fin_kwargs
@@ -39,14 +48,17 @@ def main():
     # O valor coberto pelo investimento (fin.saque_mensal) é somado de volta —
     # não sai do bolso, então não pode aparecer como perda de caixa aqui (é o
     # mesmo ajuste que faz este saldo bater com o de Financiamento da Obra).
+    # Saldo Acumulado parte do saldo de abertura real em jul./26 (posição bruta do fundo
+    # da obra, ~R$144k) em vez de ancorar no saldo do extrato em ago./26 — pedido
+    # explícito do usuário, mesmo com os dois saldos sendo de contas diferentes (fundo
+    # de investimento vs. conta corrente) e por isso destoando do extrato real.
     saldo_mes = [sl + inv + sq for sl, inv, sq in zip(totals["saldo_liquido"], totals["investimentos"], fin["saque_mensal"])]
     raw_cum = []
-    running = 0.0
+    running = investimento_posicao_inicial if investimento_posicao_inicial else 0.0
     for v in saldo_mes:
         running += v
         raw_cum.append(running)
-    anchor = raw_cum[REF_MONTH_INDEX] - fin["saldo_disponivel_imediato"]
-    saldo_acumulado = [v - anchor for v in raw_cum]
+    saldo_acumulado = raw_cum
 
     header = ["Linha"] + months + ["TOTAL"]
     out_values = [header]
@@ -92,7 +104,7 @@ def main():
 
     add_section("(=) RESULTADO FINAL DO MÊS")
     add_row("TOTAL", "Saldo do Mês", saldo_mes)
-    add_row("TOTAL", f"Saldo Acumulado (ancorado no saldo real de {months[REF_MONTH_INDEX]})", saldo_acumulado)
+    add_row("TOTAL", f"Saldo Acumulado (abertura de {fmt_brl(investimento_posicao_inicial)} em {months[investimento_mes_inicial_idx]})", saldo_acumulado)
 
     try:
         out_ws = sh.worksheet(OUT_TAB)
@@ -137,7 +149,7 @@ def main():
     print(f"Entradas (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['entradas'][REF_MONTH_INDEX])}")
     print(f"Saídas (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['saidas'][REF_MONTH_INDEX])}")
     print(f"Saldo Líquido (mês ref {months[REF_MONTH_INDEX]}): {fmt_brl(totals['saldo_liquido'][REF_MONTH_INDEX])}")
-    print(f"Saldo Acumulado (mês ref, ancorado no saldo real): {fmt_brl(saldo_acumulado[REF_MONTH_INDEX])}")
+    print(f"Saldo Acumulado (mês ref, partindo de {fmt_brl(investimento_posicao_inicial)} em {months[investimento_mes_inicial_idx]}): {fmt_brl(saldo_acumulado[REF_MONTH_INDEX])} (extrato real: {fmt_brl(fin['saldo_disponivel_imediato'])})")
     print(f"Saldo Acumulado (último mês, {months[-1]}): {fmt_brl(saldo_acumulado[-1])}")
     print(f"[double-check] Saldo Acumulado + Saldo Investimento (último mês): {fmt_brl(saldo_acumulado[-1] + fin['saldo_investimento'][-1])}")
 

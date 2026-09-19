@@ -141,18 +141,25 @@ def main():
     # inicial do fundo (~R$144k) foi consumido ao longo de 2026; usa-se o saldo atual da
     # aba Investimentos como ponto de partida da projeção, não mais um valor fixo no código.
     fin_kwargs = {"investimento_total": fundo_obra_balance} if fundo_obra_balance is not None else {}
+    if investimento_posicao_inicial:
+        fin_kwargs["historical_start_balance"] = investimento_posicao_inicial
+        fin_kwargs["historical_start_index"] = investimento_mes_inicial_idx
     variavel_obra_calc = variavel_disponivel_para_obra(proj_data, totals, n)
     fin = compute_financiamento_obra(
         months, totals["receita_liquida"], variavel_obra_calc, cartao_obra_mensal, totals["obra_pix"], **fin_kwargs
     )
     saldo_mes = [sl + inv + sq for sl, inv, sq in zip(totals["saldo_liquido"], totals["investimentos"], fin["saque_mensal"])]
+    # Saldo Acumulado agora parte do saldo de abertura real em jul./26 (posição bruta do
+    # fundo da obra, ~R$144k) em vez de ancorar no saldo do extrato em ago./26 — pedido
+    # explícito do usuário, mesmo sabendo que os dois saldos são de contas diferentes
+    # (fundo de investimento vs. conta corrente) e por isso destoam do extrato real.
     raw_cum = []
-    running = 0.0
+    running = investimento_posicao_inicial if investimento_posicao_inicial else 0.0
     for v in saldo_mes:
         running += v
         raw_cum.append(running)
-    anchor = raw_cum[ref] - fin["saldo_disponivel_imediato"]
-    saldo_acumulado = [v - anchor for v in raw_cum]
+    saldo_acumulado = raw_cum
+    saldo_acumulado_gap_extrato = saldo_acumulado[ref] - fin["saldo_disponivel_imediato"]
 
     # ---- DRE resumo (mês em foco: dash_ref = set./26, o próximo a acontecer) — Custo
     # Obra separado da Margem Líquida, já que a obra tem prazo pra terminar e não
@@ -438,6 +445,7 @@ def main():
     print(f"Cartão Obra (mês em foco, via Fluxo_Apto_Realizado linha 55): {cartao_obra_mensal[dash_ref]:.2f}")
     print(f"Moradia paga por Gabi (só Saúde, mês em foco): {totals['moradia_gabi'][dash_ref]:.2f}")
     print(f"Saldo Acumulado projetado ({months[dash_ref]}): {saldo_acumulado[dash_ref]:.2f}")
+    print(f"  [info] Saldo Acumulado partindo de {investimento_posicao_inicial:.2f} em {months[investimento_mes_inicial_idx]} — em {months[ref]} projeta {saldo_acumulado[ref]:.2f} vs. extrato real {fin['saldo_disponivel_imediato']:.2f} (gap {saldo_acumulado_gap_extrato:.2f})")
     print(f"Janela de pagamento {janela_pagamento['mes']}: {len(janela_pagamento['itens'])} itens, total {janela_pagamento['total']:.2f}")
     for g in gastos_por_natureza:
         print(f"  Gastos {g['natureza']}: {g['total']:.2f} ({g['pct']:.1f}%)")
