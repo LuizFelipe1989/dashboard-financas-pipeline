@@ -286,6 +286,13 @@
   }
 
   (function () {
+    const select = document.getElementById('dre-month');
+    populateMonthSelect(select, REF);
+    select.addEventListener('change', () => renderDreKpis(Number(select.value)));
+    renderDreKpis(REF);
+  })();
+
+  (function () {
     // Tabela mês a mês (jul./26 – ago./27), mesma estrutura seccionada da DRE_Mensal —
     // Custo Obra segue nas linhas normais (Variável Obra), separado só nos KPIs acima.
     // Sempre mostra o horizonte inteiro, independente do seletor de mês.
@@ -844,12 +851,13 @@
     }
   }
 
-  // ---------- seletor de mês global (Indicadores + DRE Resumida) ----------
+  // ---------- seletor de mês global (Indicadores) ----------
   // "Acumulado" é a visão padrão (mês em foco = REF, Saldo Projetado mostra o horizonte
-  // inteiro). Selecionar um mês específico troca essas 2 seções pra visão daquele mês —
-  // o resto do dash (Obra, Investimentos, Fluxo de Caixa, Cartão Obra, Financiamento da
-  // Obra, Gastos por Tipo, Janela de Pagamento, Alertas) tem seletor próprio ou continua
-  // mostrando o horizonte/estado atual, já que são naturalmente acumulados ou multi-mês.
+  // inteiro). Selecionar um mês específico troca essa seção pra visão daquele mês — o
+  // resto do dash (DRE Resumida, Obra, Investimentos, Fluxo de Caixa, Cartão Obra,
+  // Financiamento da Obra, Gastos por Tipo, Janela de Pagamento, Alertas) tem seletor
+  // próprio ou continua mostrando o horizonte/estado atual, já que são naturalmente
+  // acumulados ou multi-mês.
   (function () {
     const select = document.getElementById('global-month-select');
     const optAcc = document.createElement('option');
@@ -868,7 +876,6 @@
       const isAcc = value === 'acc';
       const monthIdx = isAcc ? REF : Number(value);
       renderKpiRow(monthIdx, isAcc);
-      renderDreKpis(monthIdx);
     }
     select.addEventListener('change', () => render(select.value));
     render('acc');
@@ -895,7 +902,7 @@
   // ---------- footnotes ----------
   document.getElementById('footnotes').innerHTML = wrapMoney(`
     <div><b>Seletor de mês</b> (no topo): "Acumulado" é a visão padrão — mês em foco (${monthShort(data.months[REF])}) nos Indicadores/DRE/Janela, com o Saldo Projetado olhando pro horizonte inteiro (${monthShort(data.months[N - 1])}). Selecionando um mês específico, essas 3 seções trocam pra visão daquele mês (Saldo vira "Acumulado até ali"); o resto do dashboard (Obra, Investimentos, Fluxo de Caixa, Cartão Obra, Financiamento da Obra, Alertas) continua mostrando o estado atual/horizonte, por serem visões acumuladas ou multi-mês.</div>
-    <div><b>Mês em foco</b> (indicadores, DRE Resumida, janela de pagamento, distribuição de parcelas de cartão): ${monthShort(data.months[REF])} — o próximo mês a acontecer. O saldo real conhecido é ancorado em ${monthShort(data.months[data.anchor_month_index])}, que já foi realizado.</div>
+    <div><b>Mês em foco</b> (padrão dos seletores — Indicadores, DRE Resumida, janela de pagamento, distribuição de parcelas de cartão): ${monthShort(data.months[REF])} — o próximo mês a acontecer. O saldo real conhecido é ancorado em ${monthShort(data.months[data.anchor_month_index])}, que já foi realizado. DRE Resumida tem seletor próprio, independente do seletor global de Indicadores.</div>
     <div><b>Saldo Acumulado</b> (Fluxo de Caixa) é o total combinado — conta corrente + fundo da obra — porque são a mesma reserva na prática (o fundo só rende até ser resgatado automaticamente pra pagar as contas); ancorado na soma dos dois saldos reais em ${monthShort(data.months[data.anchor_month_index])}. O gráfico <b>Financiamento da Obra</b> mostra só a fatia que está no fundo especificamente (parte desse total, não um saldo à parte) — a diferença entre os dois é o que está na conta corrente.</div>
     <div><b>Janela de pagamento</b> lista os itens da Obra (Fluxo_Apto_Realizado) com valor lançado no mês em foco. Pix usa a tabela "Janela de Pagamentos" com datas reais quando ela existe pro mês (senão cai para o mês inteiro, por cor de célula); Cartão sempre por cor de célula — só dá o mês, a parcela específica não tem dia marcado.</div>
     <div><b>Apto Saúde</b> devolvido em ago./26 — a partir de set./26 restou só o Cartão Crédito Casa, projetado mês a mês pelas parcelas pendentes em Despesas_Casa (aba própria); as demais linhas (aluguel/condomínio/Enel/internet) zeram. Informativo, paga a Gabi, não entra nas saídas.</div>
