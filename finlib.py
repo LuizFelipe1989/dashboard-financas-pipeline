@@ -30,7 +30,10 @@ CARD_REF_MONTH_INDEX = REF_MONTH_INDEX + 2  # 'out./26' — mês da fatura abert
 PARCELA_RE = re.compile(r"[Pp]arcela\s+(\d+)\s*/\s*(\d+)")
 
 # Assinaturas (natureza "Fixo Mensal") que NÃO devem recorrer nos meses seguintes:
-ASSINATURAS_CANCELADAS = ["Apple Bill - Chatgpt"]  # já cancelada, não repete
+ASSINATURAS_CANCELADAS = [
+    "Apple Bill - Chatgpt",  # já cancelada, não repete
+    "Hotmart Marcos Maia",  # compra avulsa (curso), não assinatura recorrente — tipo Assinaturas só pra categorização
+]
 # GymPass virou Total Pass (R$89,90/mês) — confirmado pelo usuário que recorre normalmente
 # nos meses seguintes junto com o cartão, então não entra mais nessa lista de exclusão.
 ASSINATURAS_JA_EM_OUTRO_GRUPO = []
