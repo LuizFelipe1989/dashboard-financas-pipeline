@@ -88,6 +88,7 @@ GROUPS = [
     ("Seguro Residencial  Caixa", "VARIAVEL"),
     ("Terapia", "VARIAVEL"),
     ("Barbearia + Farmácia", "VARIAVEL"),
+    ("Doações", "VARIAVEL"),
     ("(-) CUSTOS VARIÁVEIS — OBRA", None),
     ("Pix Pagamentos Obra", "VARIAVEL_OBRA"),
     ("(-) INVESTIMENTOS", None),
@@ -210,12 +211,13 @@ def _normalize_month(s):
     return s
 
 
-def load_cartao_obra_mensal(ws, proj_months):
-    """Read Fluxo_Apto_Realizado's own 'Cartão' monthly row (linha 55 — realizado +
-    parcelas futuras já agendadas do cartão de obra) and align it onto the Projeção
-    month axis. Fluxo_Apto_Realizado starts one calendar month earlier than Projeção
-    (verified by month-name match), so fluxo_series[i+1] lines up with proj_months[i];
-    falls back to a full name-match scan if that offset ever stops holding."""
+def _load_obra_row_mensal(ws, proj_months, row_label):
+    """Read one of Fluxo_Apto_Realizado's own monthly totalizer rows (col H label
+    'Cartão' ou 'Pix' — realizado + parcelas/pagamentos futuros já agendados) and align
+    it onto the Projeção month axis. Fluxo_Apto_Realizado starts one calendar month
+    earlier than Projeção (verified by month-name match), so fluxo_series[i+1] lines up
+    with proj_months[i]; falls back to a full name-match scan if that offset ever stops
+    holding."""
     values = ws.get_all_values()
     header_idx = None
     for i, row in enumerate(values):
@@ -225,12 +227,12 @@ def load_cartao_obra_mensal(ws, proj_months):
     if header_idx is None:
         return [0.0] * len(proj_months)
     fluxo_months = [c.strip() for c in values[header_idx][9:22] if c.strip()]
-    cartao_row = None
+    target_row = None
     for row in values[header_idx:header_idx + 4]:
-        if len(row) > 8 and row[8].strip() == "Cartão":
-            cartao_row = [br_to_float(c) for c in row[9:9 + len(fluxo_months)]]
+        if len(row) > 8 and row[8].strip() == row_label:
+            target_row = [br_to_float(c) for c in row[9:9 + len(fluxo_months)]]
             break
-    if cartao_row is None:
+    if target_row is None:
         return [0.0] * len(proj_months)
 
     offset = 1
@@ -244,8 +246,21 @@ def load_cartao_obra_mensal(ws, proj_months):
     aligned = []
     for i in range(len(proj_months)):
         src_idx = i + offset
-        aligned.append(cartao_row[src_idx] if 0 <= src_idx < len(cartao_row) else 0.0)
+        aligned.append(target_row[src_idx] if 0 <= src_idx < len(target_row) else 0.0)
     return aligned
+
+
+def load_cartao_obra_mensal(ws, proj_months):
+    """Linha 'Cartão' (realizado + parcelas futuras já agendadas do cartão de obra)."""
+    return _load_obra_row_mensal(ws, proj_months, "Cartão")
+
+
+def load_pix_obra_mensal(ws, proj_months):
+    """Linha 'Pix' (realizado + pagamentos futuros já agendados do Pix da obra) — a
+    linha 'Pix Pagamentos Obra' de Projeção Gastos_Atualizados fica sempre zerada (nunca
+    mantida pelo usuário), então o Custo Obra/Margem Líquida usava só a parte do cartão
+    até esta função existir; agora lê o valor real, mesma fonte usada pelo card_obra."""
+    return _load_obra_row_mensal(ws, proj_months, "Pix")
 
 
 DESPESAS_CASA_TAB = "Despesas_Casa"
@@ -425,10 +440,14 @@ def group_sum(data, group_name, n_months, groups=GROUPS):
     return tot
 
 
-def compute_totals(months, data, cartao_tipo, cartao_obra_mensal=None):
+def compute_totals(months, data, cartao_tipo, cartao_obra_mensal=None, obra_pix_mensal=None):
     """Shared monthly totals used by DRE_Mensal, Fluxo_Caixa and the dashboard JSON.
-    cartao_obra_mensal (from Fluxo_Apto_Realizado!linha 55, already aligned to `months`)
-    folds into Custos Variáveis alongside the personal cartão-por-tipo breakdown."""
+    cartao_obra_mensal (from Fluxo_Apto_Realizado!linha 'Cartão', já alinhada a `months`)
+    folds into Custos Variáveis alongside the personal cartão-por-tipo breakdown.
+    obra_pix_mensal (linha 'Pix' da mesma aba, via load_pix_obra_mensal) é o valor real
+    do Pix da obra — a linha 'Pix Pagamentos Obra' de Projeção Gastos_Atualizados fica
+    sempre zerada (nunca mantida pelo usuário), então usa-se essa fonte quando informada;
+    cai pro group_sum (zerado) só se nenhuma for passada, por compatibilidade."""
     n = len(months)
     cartao_pessoal_total = [0.0] * n
     for vals in cartao_tipo.values():
@@ -443,7 +462,7 @@ def compute_totals(months, data, cartao_tipo, cartao_obra_mensal=None):
     moradia_gabi = group_sum(data, "MORADIA_GABI", n)
     variavel_sem_cartao = group_sum(data, "VARIAVEL", n)
     variavel = [a + b for a, b in zip(variavel_sem_cartao, cartao_pessoal_total)]
-    obra_pix = group_sum(data, "VARIAVEL_OBRA", n)
+    obra_pix = obra_pix_mensal if obra_pix_mensal is not None else group_sum(data, "VARIAVEL_OBRA", n)
     variavel_obra = [a + b for a, b in zip(obra_pix, cartao_obra_mensal)]
     outras_receitas = group_sum(data, "OUTRAS_RECEITAS", n)
     investimentos = group_sum(data, "INVESTIMENTOS", n)
