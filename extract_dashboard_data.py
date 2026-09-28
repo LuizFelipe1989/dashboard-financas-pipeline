@@ -6,7 +6,6 @@ from finlib import (
     CARD_REF_MONTH_INDEX,
     load_projecao, load_card_items, cartao_por_tipo, load_cartao_obra_mensal, load_pix_obra_mensal, compute_totals, fmt_brl,
     apply_despesas_casa_handover, neutralize_investimentos_row, compute_financiamento_obra,
-    variavel_disponivel_para_obra,
 )
 from build_dre import build_rows
 from build_obra import load_items_and_colors, load_item_grid, window_from_grid_by_dre_index, load_janela_pix_manual, payment_summary, SRC_TAB as OBRA_TAB
@@ -38,7 +37,7 @@ def dre_detalhe_full(months, data, ctipo, cartao_obra_mensal, totals):
     return out
 
 
-def build_alerts(months, ref, totals, cartao_obra_mensal, obra, gastos_natureza, saldo_investimento_series, saldo_acumulado=None, invest_search_from=0):
+def build_alerts(months, ref, totals, cartao_obra_mensal, obra, gastos_natureza, saldo_acumulado=None):
     """Regras de bom senso sobre os dados frescos — mesma lógica que o agente da
     routine diária aplicaria; roda aqui também para manter o dashboard com alertas
     sempre que os scripts locais forem executados, não só na rotina de nuvem.
@@ -73,11 +72,6 @@ def build_alerts(months, ref, totals, cartao_obra_mensal, obra, gastos_natureza,
     var_total = abs(totals["variavel"][ref]) or 1.0
     if disc_total / var_total > 0.15:
         alerts.append({"icon": "🔀", "text": f"Gastos discricionários (não recorrentes) somam R$ {fmt_brl(disc_total)} este mês — vale revisar."})
-
-    if saldo_investimento_series:
-        idx0 = next((i for i in range(invest_search_from, len(saldo_investimento_series)) if saldo_investimento_series[i] <= 0), None)
-        if idx0 is not None and idx0 < len(months):
-            alerts.append({"icon": "📉", "text": f"No ritmo atual, o investimento usado para cobrir a parcela da obra se esgota por volta de {months[idx0]}."})
 
     return alerts[:6]
 
@@ -137,34 +131,21 @@ def main():
     invest_rent_ativa = compute_rentabilidade_ativa(invest_categorias)
     fundo_obra_balance = get_fundo_obra_balance(invest_categorias)
 
-    # Financiamento da obra e Fluxo de Caixa compartilham a mesma lógica de saque —
-    # é o que faz o saldo final de um bater com o do outro (double-check pedido). O saldo
-    # inicial do fundo (~R$144k) foi consumido ao longo de 2026; usa-se o saldo atual da
-    # aba Investimentos como ponto de partida da projeção, não mais um valor fixo no código.
+    # Conta corrente e fundo da obra são a mesma reserva na prática: o extrato bancário
+    # mostra resgate automático do fundo cobrindo CADA saída (cartão inteiro, boletos,
+    # Pix — não só a parte da obra), e a Gabriela recompõe depois via Pix (linha
+    # "Reembolso Gabriela", dentro de entradas) quando ela recebe o salário dela — não
+    # existe uma separação real "salário paga isso, fundo paga aquilo" (reconciliado
+    # contra o extrato item a item em 2026-09-28). Por isso "Financiamento da Obra" e o
+    # "Saldo Acumulado" do Fluxo de Caixa são a MESMA trajetória: saidas_caixa inclui de
+    # volta Fixo_Gabi/Moradia_Gabi (que também saem dessa reserva na prática), acumulada
+    # a partir do saldo real do fundo em ref_month_index.
     fin_kwargs = {"investimento_total": fundo_obra_balance} if fundo_obra_balance is not None else {}
     if investimento_posicao_inicial:
         fin_kwargs["historical_start_balance"] = investimento_posicao_inicial
         fin_kwargs["historical_start_index"] = investimento_mes_inicial_idx
-    variavel_obra_calc = variavel_disponivel_para_obra(proj_data, totals, n)
-    fin = compute_financiamento_obra(
-        months, totals["receita_liquida"], variavel_obra_calc, cartao_obra_mensal, totals["obra_pix"], **fin_kwargs
-    )
-    # Conta corrente e fundo da obra são a mesma reserva na prática (o fundo só rende até
-    # ser resgatado automaticamente pra pagar as contas) — por isso "Saldo Acumulado" (o
-    # número que o usuário acompanha como "meu saldo") é o TOTAL combinado das duas
-    # (conta + fundo), não só a conta corrente isolada. saldo_liquido já reflete o custo
-    # total da obra (saída completa, não só a parte que sobra do salário), então somar
-    # direto sem o ajuste de saque_mensal já dá o total combinado — a prova: se X é o
-    # saque do fundo no mês, a conta cresce X a mais (não precisou desembolsar) e o fundo
-    # cai X a menos; a soma das duas cancela o X e sobra só saldo_liquido, mês a mês.
-    raw_cum = []
-    running = 0.0
-    for v in totals["saldo_liquido"]:
-        running += v
-        raw_cum.append(running)
-    saldo_combinado_ref = fin["saldo_disponivel_imediato"] + fin["investimento_bloqueado_total"]
-    anchor = raw_cum[ref] - saldo_combinado_ref
-    saldo_acumulado = [v - anchor for v in raw_cum]
+    fin = compute_financiamento_obra(months, totals["entradas"], totals["saidas_caixa"], **fin_kwargs)
+    saldo_acumulado = fin["saldo_investimento"]
 
     # ---- DRE resumo (mês em foco: dash_ref = set./26, o próximo a acontecer) — Custo
     # Obra separado da Margem Líquida, já que a obra tem prazo pra terminar e não
@@ -362,7 +343,7 @@ def main():
 
     alerts = build_alerts(
         months, dash_ref, totals, cartao_obra_mensal, obra_out, by_natureza_dash_ref,
-        fin["saldo_investimento"], saldo_acumulado=saldo_acumulado, invest_search_from=ref,
+        saldo_acumulado=saldo_acumulado,
     )
 
     # ---- Investimentos: highlights de eficiência/concentração/liquidez (dados já
@@ -429,7 +410,7 @@ def main():
         "pagamentos": pagamentos,
         "financiamento_obra": {
             "investimento_bloqueado_total": fin["investimento_bloqueado_total"],
-            "saque_mensal": fin["saque_mensal"],
+            "saldo_mes": fin["saldo_mes"],
             "saldo_investimento": fin["saldo_investimento"],
             "posicao_inicial": investimento_posicao_inicial,
             "posicao_inicial_mes": months[investimento_mes_inicial_idx],
@@ -445,18 +426,16 @@ def main():
 
     print(f"{OUT_PATH} escrito.")
     print(f"Mês âncora (saldo real): {months[ref]} | Mês em foco (dashboard): {months[dash_ref]} | Margem Líquida: {dre_resumo['margem_liquida']:.2f}")
-    print(f"Entradas: {totals['entradas'][dash_ref]:.2f} | Saídas: {totals['saidas'][dash_ref]:.2f} | Saldo Líquido: {totals['saldo_liquido'][dash_ref]:.2f}")
+    print(f"Entradas: {totals['entradas'][dash_ref]:.2f} | Saídas caixa real: {totals['saidas_caixa'][dash_ref]:.2f} | Saldo Líquido de Caixa: {totals['saldo_liquido_caixa'][dash_ref]:.2f}")
     print(f"Cartão Obra (mês em foco, via Fluxo_Apto_Realizado linha 55): {cartao_obra_mensal[dash_ref]:.2f}")
-    print(f"Moradia paga por Gabi (só Saúde, mês em foco): {totals['moradia_gabi'][dash_ref]:.2f}")
-    print(f"Saldo Acumulado projetado ({months[dash_ref]}): {saldo_acumulado[dash_ref]:.2f}")
-    print(f"  [info] Saldo Acumulado já é o total combinado (conta + fundo); só na conta corrente seria {saldo_acumulado[dash_ref] - fin['saldo_investimento'][dash_ref]:.2f}")
+    print(f"Custos fixos da casa (Gabi, mês em foco): {(totals['moradia_gabi'][dash_ref] + totals['fixo_gabi'][dash_ref]):.2f}")
+    print(f"Saldo Acumulado projetado — conta+fundo, mesma reserva ({months[dash_ref]}): {saldo_acumulado[dash_ref]:.2f}")
     print(f"Janela de pagamento {janela_pagamento['mes']}: {len(janela_pagamento['itens'])} itens, total {janela_pagamento['total']:.2f}")
     for g in gastos_por_natureza:
         print(f"  Gastos {g['natureza']}: {g['total']:.2f} ({g['pct']:.1f}%)")
     print(f"Pagamentos -> Pago total: {pagamentos['pago_total']:.2f} | Pix pendente (total previsto): {pagamentos['pix_pendente_total']:.2f} | Cartão futuro: {pagamentos['cartao_futuro']:.2f}")
     print(f"Financiamento obra: saldo em {months[jul27_idx]}: {fin['saldo_investimento'][jul27_idx]:.2f} (partindo de {fin['investimento_bloqueado_total']:.2f}, posição inicial {months[investimento_mes_inicial_idx]}: {investimento_posicao_inicial:.2f})")
     print(f"Saldo Acumulado final ({months[-1]}): {saldo_acumulado[-1]:.2f}")
-    print(f"[double-check] Saldo Acumulado (combinado) − Saldo Investimento (só fundo) = só conta corrente (último mês): {(saldo_acumulado[-1] - fin['saldo_investimento'][-1]):.2f}")
     print(f"Alertas gerados: {len(alerts)}")
     print(f"Investimentos: total atual {fmt_brl(invest_total['valor_atual'])} | rentabilidade posições ativas {invest_rent_ativa['rent_pct']} | highlights: {len(invest_highlights)}")
 

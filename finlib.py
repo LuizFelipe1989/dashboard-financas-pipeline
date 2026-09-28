@@ -19,14 +19,16 @@ CARD_TABLE_COL_TIPO = 11
 CARD_TABLE_COL_BANCO = 12
 CARD_TABLE_FIRST_ROW = 3  # 1-indexed sheet row
 
-REF_MONTH_INDEX = 1  # 'ago./26' — mês de referência para contar parcelas restantes; ajuste aqui se necessário
+REF_MONTH_INDEX = 2  # 'set./26' — mês já realizado/corrente (saldo do fundo lido "hoje"
+# reflete até aqui); ajuste aqui conforme o tempo passa, junto com o saldo do fundo
+# (get_fundo_obra_balance) e o saldo da conta corrente (SALDO_DISPONIVEL_IMEDIATO).
 # Contas!Cartão Pessoal é reescrita a cada rodada pra refletir a fatura em ABERTO atual
-# (a que vence dia 10 do mês seguinte), não a fatura já fechada de REF_MONTH_INDEX — por
-# isso "Parcela X/Y" nas descrições conta a partir desse mês, dois à frente do anchor
-# fechado. cartao_por_tipo() precisa desse mesmo anchor (não o default REF_MONTH_INDEX)
-# pra bater com o snapshot de Gastos por Tipo/gráfico por cartão, senão o Custo Variável
-# da DRE mostra a distribuição de parcelas ~2 meses defasada da fatura real.
-CARD_REF_MONTH_INDEX = REF_MONTH_INDEX + 2  # 'out./26' — mês da fatura aberta refletida em Contas
+# (a que vence dia 10 do mês seguinte) — um fato diferente e independente de
+# REF_MONTH_INDEX (o ciclo do cartão fecha dia 10, não no fim do mês civil), por isso é
+# uma constante própria, não derivada: mudar REF_MONTH_INDEX não deve mudar qual fatura
+# do cartão está aberta. cartao_por_tipo() precisa desse anchor (não o REF_MONTH_INDEX)
+# pra bater com o snapshot de Gastos por Tipo/gráfico por cartão.
+CARD_REF_MONTH_INDEX = 3  # 'out./26' — mês da fatura aberta refletida em Contas (vence 10/10)
 PARCELA_RE = re.compile(r"[Pp]arcela\s+(\d+)\s*/\s*(\d+)")
 
 # Assinaturas (natureza "Fixo Mensal") que NÃO devem recorrer nos meses seguintes:
@@ -44,6 +46,11 @@ ASSINATURAS_JA_EM_OUTRO_GRUPO = []
 GROUPS = [
     ("RECEITA BRUTA", None),
     ("Salário Bruto", "RECEITA_BRUTA"),
+    ("(+) OUTRAS RECEITAS", None),
+    # Reembolsos da Gabriela pelas contas da casa que o Luiz antecipa (ela paga as
+    # contas dele, ele paga as da casa, ela recompõe depois no 5º dia útil do mês
+    # seguinte) — lançado quando o Pix realmente chega, não uma média mensal.
+    ("Reembolso Gabriela", "OUTRAS_RECEITAS"),
     ("(-) DEDUÇÕES SOBRE SALÁRIO", None),
     # "Deduções Salário" is the source sheet's own subtotal of the lines below —
     # excluded here to avoid double-counting; the computed Subtotal reproduces it.
@@ -56,7 +63,7 @@ GROUPS = [
     ("Vale Alimentação", "DEDUCOES"),
     ("Desc. Plano Saúde + Dental", "DEDUCOES"),
     ("Desc. Farmácia", "DEDUCOES"),
-    ("13º Salário", "DEDUCOES"),  # ago./26 em diante: linha reaproveitada p/ Restituição IR (ver LABEL_OVERRIDES)
+    ("13º Salário", "DEDUCOES"),  # único valor real: R$4.521,93 em dez./26 (13º de verdade, confirmado pelo usuário)
     ("(-) MORADIA SAÚDE (PAGO POR GABI — INFORMATIVO, NÃO ENTRA NA MARGEM)", None),
     # Apto Saúde devolvido em ago./26 — a partir de set./26 (SET_MONTH_LABEL) estas 4 linhas
     # são zeradas e "Cartão Crédito Casa" passa a refletir só as parcelas pendentes de
@@ -95,9 +102,7 @@ GROUPS = [
     ("Investimentos", "INVESTIMENTOS"),
 ]
 
-LABEL_OVERRIDES = {
-    "13º Salário": "Restituição IR (linha reaproveitada de 13º Salário)",
-}
+LABEL_OVERRIDES = {}
 
 
 def get_clients():
@@ -344,90 +349,54 @@ def neutralize_investimentos_row(data):
     return data
 
 
-# Extrato BB (conta 3494-0 / 48516-0), posição em 20/08/2026 — atualize manualmente
-# a cada novo extrato até termos ingestão automática.
-SALDO_DISPONIVEL_IMEDIATO = 25371.41
+# Extrato BB (conta 3494-0 / 48516-0), posição em 28/09/2026 — não usado no cálculo do
+# fundo combinado hoje (o extrato mostra resgate automático zerando a conta corrente
+# todo dia, então esse saldo já é 0 na prática), mantido só como registro/fallback.
+# Atualize manualmente a cada novo extrato até termos ingestão automática.
+SALDO_DISPONIVEL_IMEDIATO = 0.0
 # Fallback só usado se a leitura ao vivo da aba Investimentos (build_investimentos.
 # get_fundo_obra_balance) falhar — o valor real e atual do RF Ref DI Plus Ágil (fundo
 # dado em garantia do limite do cartão da obra) é lido da planilha a cada rodada.
 INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76
 
-# Itens de VARIAVEL que a Gabriela também assume 100% (a lista original dela mistura
-# custos fixos com essas 4 linhas variáveis) — usado só pra saber quanto do salário do
-# Luiz sobra livre pra pagar o cartão da obra em compute_financiamento_obra; não afeta
-# o resto do dashboard (DRE, Fluxo de Caixa), que continua na base "Luiz sozinho".
-GABI_APOIO_VARIAVEL = ["Diarista", "Supermercado", "Farmácia Maria", "Pediatra Maria"]
-
-
-def variavel_disponivel_para_obra(data, totals, n):
-    """totals['variavel'] menos os itens que a Gabriela cobre — o que realmente compete
-    com a parcela do cartão da obra pelo salário do Luiz."""
-    gabi_var = [0.0] * n
-    for label in GABI_APOIO_VARIAVEL:
-        vals = data.get(label, [0.0] * n)
-        gabi_var = [a + b for a, b in zip(gabi_var, vals)]
-    return [v - g for v, g in zip(totals["variavel"], gabi_var)]
-
-
-def _saque_obra_mes(i, running, receita_liquida, variavel_pessoal, cartao_obra_mensal, obra_pix_mensal):
-    """Um mês do modelo de saque do fundo da obra: salário líquido cobre primeiro as
-    despesas variáveis pessoais, depois o cartão da obra; o fundo só cobre o que falta
-    (Pix inteiro + parte do cartão que o salário não deu conta), limitado ao saldo
-    disponível. Fatorado pra ser reaplicado tanto na reconstrução histórica (a partir
-    da posição bruta inicial do fundo) quanto na projeção futura (a partir do saldo
-    real e vivo lido da planilha)."""
-    salario_disponivel = max(receita_liquida[i] - abs(variavel_pessoal[i]), 0.0)
-    cartao = abs(cartao_obra_mensal[i])
-    pix = abs(obra_pix_mensal[i])
-    pago_cartao_salario = min(salario_disponivel, cartao)
-    cartao_faltante = cartao - pago_cartao_salario
-    sobra_salario = salario_disponivel - pago_cartao_salario
-    necessidade = max(pix + cartao_faltante - sobra_salario, 0.0)
-    saque = min(necessidade, max(running, 0.0))
-    return saque, running - saque
-
-
-def compute_financiamento_obra(months, receita_liquida, variavel_pessoal, cartao_obra_mensal, obra_pix_mensal,
+def compute_financiamento_obra(months, entradas_caixa, saidas_caixa,
                                 ref_month_index=REF_MONTH_INDEX,
                                 saldo_disponivel=SALDO_DISPONIVEL_IMEDIATO, investimento_total=INVESTIMENTO_BLOQUEADO_TOTAL,
                                 historical_start_balance=None, historical_start_index=0):
-    """Cada mês (a partir do mês SEGUINTE ao de referência — o saldo atual do fundo já
-    reflete os pagamentos até o mês de referência inclusive), o salário líquido cobre
-    primeiro as despesas variáveis pessoais (custos fixos ficam de fora dessa conta —
-    Gabriela assume 100% deles); o que sobra do salário paga o cartão da obra, que é
-    pago majoritariamente por ele — a parte do bloqueio referente a isso vai sendo
-    liberada. O fundo só cobre o que falta: o Pix da obra inteiro, mais qualquer parte
-    do cartão que o salário não deu conta. Isso faz o fundo durar bem mais do que
-    cobrindo o custo total (Pix+Cartão) sozinho, sem considerar a entrada de salário.
-    'saque_mensal' é quanto o fundo cobriu (somado de volta no Fluxo de Caixa, já que
-    essa parte não sai do bolso); o resto da parcela do cartão paga pelo próprio
-    salário já está refletido no fluxo normal (entra como receita, sai como despesa),
-    sem precisar de tratamento especial aqui.
+    """O fundo da obra e a conta corrente são, na prática, a mesma reserva: o extrato
+    real mostra resgate automático do fundo cobrindo CADA saída (cartão inteiro, boletos,
+    Pix — não só a parte da obra) e a Gabriela recompondo depois via Pix (linha
+    'Reembolso Gabriela', dentro de entradas_caixa) quando o salário dela cai — não há
+    uma separação real "salário paga isso, fundo paga aquilo". Por isso o saldo do fundo
+    é simplesmente entradas_caixa + saidas_caixa acumulados a partir do saldo real
+    conhecido em ref_month_index (confirmado com o usuário em 2026-09-28, reconciliando
+    contra o extrato bancário item a item).
 
     historical_start_balance: se informado (ex.: R$144.007,23, a posição bruta do fundo
     em jul./26 antes da obra consumi-lo), reconstrói os meses ANTES de ref_month_index
-    aplicando esse mesmo modelo de saque a partir desse saldo inicial — em vez de ficarem
-    "achatados" no saldo atual (investimento_total). ref_month_index em diante continua
-    ancorado exatamente no saldo real e vivo lido da planilha, sem mudança: essa
-    reconstrução é só uma ponte histórica ilustrativa, não influencia a projeção futura."""
+    com a mesma soma a partir desse saldo inicial — em vez de ficarem "achatados" no
+    saldo atual (investimento_total). ref_month_index em diante continua ancorado
+    exatamente no saldo real e vivo lido da planilha, sem mudança."""
     n = len(months)
-    saque_mensal = [0.0] * n
+    saldo_mes = [0.0] * n
     saldo_investimento = [investimento_total] * n
     running = investimento_total
     for i in range(n):
         if i > ref_month_index:
-            saque, running = _saque_obra_mes(i, running, receita_liquida, variavel_pessoal, cartao_obra_mensal, obra_pix_mensal)
-            saque_mensal[i] = saque
+            delta = entradas_caixa[i] + saidas_caixa[i]
+            running += delta
+            saldo_mes[i] = delta
         saldo_investimento[i] = running
 
     if historical_start_balance is not None:
         hrunning = historical_start_balance
         for i in range(historical_start_index, ref_month_index):
-            saque, hrunning = _saque_obra_mes(i, hrunning, receita_liquida, variavel_pessoal, cartao_obra_mensal, obra_pix_mensal)
-            saque_mensal[i] = saque
+            delta = entradas_caixa[i] + saidas_caixa[i]
+            hrunning += delta
+            saldo_mes[i] = delta
             saldo_investimento[i] = hrunning
 
-    return {"saque_mensal": saque_mensal, "saldo_investimento": saldo_investimento,
+    return {"saldo_mes": saldo_mes, "saldo_investimento": saldo_investimento,
             "saldo_disponivel_imediato": saldo_disponivel, "investimento_bloqueado_total": investimento_total}
 
 
@@ -467,14 +436,22 @@ def compute_totals(months, data, cartao_tipo, cartao_obra_mensal=None, obra_pix_
     outras_receitas = group_sum(data, "OUTRAS_RECEITAS", n)
     investimentos = group_sum(data, "INVESTIMENTOS", n)
 
-    # moradia_gabi e fixo_gabi são informativos só (pagos pela Gabi) — excluídos da margem.
+    # moradia_gabi e fixo_gabi são informativos só (pagos pela Gabi) — excluídos da
+    # margem (visão "quanto sobra se cada um bancasse só o que é seu"). Mas, na prática,
+    # o extrato mostra que TUDO sai da mesma reserva (resgate automático cobre cada
+    # boleto, inclusive Condomínio/IPTU/Financiamento) e a Gabriela recompõe depois via
+    # Pix (linha "Reembolso Gabriela", em Outras Receitas) — por isso saidas_caixa
+    # inclui moradia_gabi/fixo_gabi de volta: é o fluxo de caixa real da conta/fundo
+    # combinados, usado por compute_financiamento_obra, não a margem informativa do Luiz.
     margem_liquida = [
         rl + orc + f + v + vo + inv
         for rl, orc, f, v, vo, inv in zip(receita_liquida, outras_receitas, fixo, variavel, variavel_obra, investimentos)
     ]
     entradas = [rl + orc for rl, orc in zip(receita_liquida, outras_receitas)]
     saidas = [f + v + vo for f, v, vo in zip(fixo, variavel, variavel_obra)]
+    saidas_caixa = [s + fg + mg for s, fg, mg in zip(saidas, fixo_gabi, moradia_gabi)]
     saldo_liquido = [e + s for e, s in zip(entradas, saidas)]
+    saldo_liquido_caixa = [e + s for e, s in zip(entradas, saidas_caixa)]
     return {
         "receita_bruta": receita_bruta, "deducoes": deducoes, "receita_liquida": receita_liquida,
         "fixo": fixo, "fixo_gabi": fixo_gabi, "moradia_gabi": moradia_gabi, "variavel_sem_cartao": variavel_sem_cartao,
@@ -483,6 +460,7 @@ def compute_totals(months, data, cartao_tipo, cartao_obra_mensal=None, obra_pix_
         "outras_receitas": outras_receitas,
         "investimentos": investimentos, "margem_liquida": margem_liquida,
         "entradas": entradas, "saidas": saidas, "saldo_liquido": saldo_liquido,
+        "saidas_caixa": saidas_caixa, "saldo_liquido_caixa": saldo_liquido_caixa,
     }
 
 
