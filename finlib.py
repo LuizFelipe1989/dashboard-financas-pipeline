@@ -96,6 +96,8 @@ GROUPS = [
     ("Terapia", "VARIAVEL"),
     ("Barbearia + Farmácia", "VARIAVEL"),
     ("Doações", "VARIAVEL"),
+    ("Vestuário", "VARIAVEL"),
+    ("Osteopata Maria", "VARIAVEL"),
     ("(-) CUSTOS VARIÁVEIS — OBRA", None),
     ("Pix Pagamentos Obra", "VARIAVEL_OBRA"),
     ("(-) INVESTIMENTOS", None),
