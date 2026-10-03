@@ -784,8 +784,8 @@
       `Pix com valor lançado em ${monthShort(jp.mes)} · ${pixFonteTxt} · ${cartaoTxt} · ${jp.itens.length} itens`;
     document.getElementById('janela-total').innerHTML = moneySpan(-jp.total);
 
-    const statusClass = { PAGO: 'pago', PENDENTE: 'pendente', FUTURO: 'futuro' };
-    const statusLabel = { PAGO: 'Pago', PENDENTE: 'Pendente', FUTURO: 'Futuro' };
+    const statusClass = { PAGO: 'pago', PENDENTE: 'pendente', PARCIAL: 'parcial', FUTURO: 'futuro' };
+    const statusLabel = { PAGO: 'Pago', PENDENTE: 'Pendente', PARCIAL: 'Parcial', FUTURO: 'Futuro' };
     const tbody = document.getElementById('janela-table-body');
     tbody.innerHTML = '';
 

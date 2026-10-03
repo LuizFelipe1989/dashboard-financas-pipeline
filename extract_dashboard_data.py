@@ -308,7 +308,10 @@ def main():
                 for it in month_window if it["modalidade"].strip().lower() == "pix"
             ]
             pix_fonte = "cor"
-        itens = pix_itens + cartao_itens
+        # Só o que ainda falta pagar (Pendente/Parcial/Futuro) — itens já quitados (Pago)
+        # não entram na janela de pagamento, que é uma lista do que falta sair, não um
+        # histórico do que já saiu (pedido do usuário em 2026-10-01).
+        itens = [it for it in (pix_itens + cartao_itens) if it["status"] != "PAGO"]
         return {
             "mes": months[month_idx], "pix_fonte": pix_fonte, "itens": itens,
             "total": sum(it["valor"] for it in itens),

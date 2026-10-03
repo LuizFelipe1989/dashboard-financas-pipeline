@@ -20,6 +20,7 @@ COL_TOTAL_PREVISTO = "W"
 GREEN = (0.85, 0.92, 0.83)   # pago
 YELLOW = (1.0, 0.95, 0.8)    # janela de pagamento do mês corrente, ainda pendente
 PINK = (0.92, 0.82, 0.86)    # próximos meses (a partir do mês seguinte), ainda não vencido
+PURPLE = (0.87, 0.83, 0.93)  # pago parcialmente — parte já quitada, resto ainda pendente
 
 
 def classify_color(bg):
@@ -28,6 +29,8 @@ def classify_color(bg):
         return "PAGO"
     if rgb == YELLOW:
         return "PENDENTE"
+    if rgb == PURPLE:
+        return "PARCIAL"
     return "FUTURO"
 
 
@@ -72,7 +75,7 @@ def load_items_and_colors(sh, sheets_api, ws):
             status = classify_color(cell.get("userEnteredFormat", {}).get("backgroundColor", {}))
             if status == "PAGO":
                 pago += val
-            elif status == "PENDENTE":
+            elif status in ("PENDENTE", "PARCIAL"):
                 pendente += val
             else:
                 futuro += val
