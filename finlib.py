@@ -28,7 +28,11 @@ REF_MONTH_INDEX = 2  # 'set./26' — mês já realizado/corrente (saldo do fundo
 # uma constante própria, não derivada: mudar REF_MONTH_INDEX não deve mudar qual fatura
 # do cartão está aberta. cartao_por_tipo() precisa desse anchor (não o REF_MONTH_INDEX)
 # pra bater com o snapshot de Gastos por Tipo/gráfico por cartão.
-CARD_REF_MONTH_INDEX = 3  # 'out./26' — mês da fatura aberta refletida em Contas (vence 10/10)
+CARD_REF_MONTH_INDEX = 4  # 'nov./26' — mês da fatura aberta refletida em Contas (vence 10/11);
+# avança pra cá em 2026-10-01: todas as "Parcela X/Y" da aba Contas incrementaram em 1
+# de uma vez (ex.: Rede Imunne 1/6→2/6, Fogões Shop 1/3→2/3), confirmando que a fatura
+# de out./26 fechou e Contas já reflete a próxima (nov./26) — ajuste aqui de novo quando
+# o ciclo avançar mais.
 PARCELA_RE = re.compile(r"[Pp]arcela\s+(\d+)\s*/\s*(\d+)")
 
 # Assinaturas (natureza "Fixo Mensal") que NÃO devem recorrer nos meses seguintes:
