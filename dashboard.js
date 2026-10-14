@@ -582,6 +582,8 @@
       `<div style="width:${Math.min(f.pct_prazo, 100)}%; background: var(--good)"></div>` +
       `<div style="width:${Math.max(100 - f.pct_prazo, 0)}%; background: var(--neutral-track)"></div>`;
 
+    document.getElementById('finim-contrato-summary').innerHTML = '<span>' + wrapMoney(
+      `Contrato e histórico — financiado ${fmt0(f.valor_financiado)} · juros ${f.juros_nominais.toLocaleString('pt-BR', { minimumFractionDigits: 3 })}% a.a. · ${f.meses_restantes} prestações restantes · próximas saídas ${fmt0((f.plano_caixa[0] || {}).valor || 0)}/mês`) + '</span>';
     const row = (a, b) => `<tr><td>${a}</td><td class="num">${b}</td></tr>`;
     document.getElementById('finim-contrato').innerHTML = [
       row('Assinatura', f.assinatura),
