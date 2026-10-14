@@ -611,6 +611,11 @@
         `sem correção da TR. Premissas editáveis na aba Financiamento_Imovel: antecipação mensal atual ${brl2(pm.extra_atual)}, ${fgtsTxt}${avTxt}. ` +
         `A economia vem de antecipar cedo: no início quase toda a prestação é juro, então cada real antecipado corta prestações do fim do contrato.`);
 
+      const m3 = pr.cenarios.find((c) => c.id === 'meta3'), m5 = pr.cenarios.find((c) => c.id === 'meta5');
+      if (m3 && m5) {
+        document.getElementById('finim-proj-summary').innerHTML = '<span>' + wrapMoney(
+          `Projeção de quitação — 5 anos: + ${fmt0(m5.extra_mensal - pm.extra_atual)}/mês · 3 anos: + ${fmt0(m3.extra_mensal - pm.extra_atual)}/mês além do plano atual`) + '</span>';
+      }
       const tb = document.getElementById('finim-cenarios');
       tb.innerHTML = pr.cenarios.map((c) => {
         const meta = c.meta_meses
