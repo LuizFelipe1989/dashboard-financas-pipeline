@@ -614,9 +614,12 @@
       const tb = document.getElementById('finim-cenarios');
       tb.innerHTML = pr.cenarios.map((c) => {
         const meta = c.meta_meses
-          ? `<div style="font-size:11px;color:var(--ink-muted)">sem FGTS seria ${money2(c.extra_sem_fgts)}/mês</div>` : '';
+          ? `<div style="font-size:11px;color:var(--ink-muted)">sem FGTS seria ${money2(c.extra_sem_fgts - pm.extra_atual)} a mais/mês</div>` : '';
+        const adic = c.id === 'base' ? null : c.extra_mensal - pm.extra_atual;
+        const adicTxt = adic === null ? '—' : (adic < 0.005 ? '<span style="color:var(--ink-muted)">plano atual</span>' : '+ ' + money2(adic));
         return `<tr><td>${c.nome}${meta}</td>
-          <td class="num">${money2(c.extra_mensal)}</td>
+          <td class="num"><b>${adicTxt}</b></td>
+          <td class="num">${money2(c.desembolso_mensal)}<div style="font-size:11px;color:var(--ink-muted)">antecip. ${money2(c.extra_mensal)}</div></td>
           <td class="num">${c.fgts_usado ? money2(c.fgts_usado) : '—'}</td>
           <td class="num"><b>${c.quitacao}</b><div style="font-size:11px;color:var(--ink-muted)">${(c.meses / 12).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} anos</div></td>
           <td class="num">${money2(c.juros_total)}</td>
@@ -625,6 +628,7 @@
 
       document.getElementById('finim-simulador').innerHTML = pr.simulador.map((r) =>
         `<tr><td>${money2(r.extra)}</td>
+          <td class="num">${r.extra - pm.extra_atual < 0.005 ? '—' : '+ ' + money2(r.extra - pm.extra_atual)}</td>
           <td class="num">${r.quitacao_sem_fgts}</td><td class="num">${money2(r.economia_sem_fgts)}</td>
           <td class="num">${r.quitacao_com_fgts}</td><td class="num">${money2(r.economia_com_fgts)}</td></tr>`).join('');
 
