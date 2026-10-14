@@ -364,11 +364,19 @@ SALDO_DISPONIVEL_IMEDIATO = 0.0
 # get_fundo_obra_balance) falhar — o valor real e atual do RF Ref DI Plus Ágil (fundo
 # dado em garantia do limite do cartão da obra) é lido da planilha a cada rodada.
 INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76
+# O saldo vivo do fundo (K7) já embute o que foi realizado do mês seguinte ao âncora
+# (REF_MONTH_INDEX) até a data da leitura; esse trecho é descontado do delta daquele mês
+# para não contar duas vezes. Out/26 até 13/10 (itens planejados já liquidados no extrato):
+# Gabriela +3.810,00; Condomínio -1.417,79; IPTU -483,74; amortização Caixa -259,54;
+# doação -15,80; higiene -120,01; Pix obra Leandro -200,00. (O empréstimo de 5k da Gabriela
+# entrou no fundo e não está no plano, então não entra aqui.) Atualizar/zerar ao avançar o âncora.
+REALIZADO_PARCIAL_MES_SEGUINTE = 3810.00 - 1417.79 - 483.74 - 259.54 - 15.80 - 120.01 - 200.00
 
 def compute_financiamento_obra(months, entradas_caixa, saidas_caixa,
                                 ref_month_index=REF_MONTH_INDEX,
                                 saldo_disponivel=SALDO_DISPONIVEL_IMEDIATO, investimento_total=INVESTIMENTO_BLOQUEADO_TOTAL,
-                                historical_start_balance=None, historical_start_index=0):
+                                historical_start_balance=None, historical_start_index=0,
+                                realizado_parcial_mes_seguinte=REALIZADO_PARCIAL_MES_SEGUINTE):
     """O fundo da obra e a conta corrente são, na prática, a mesma reserva: o extrato
     real mostra resgate automático do fundo cobrindo CADA saída (cartão inteiro, boletos,
     Pix — não só a parte da obra) e a Gabriela recompondo depois via Pix (linha
@@ -390,6 +398,9 @@ def compute_financiamento_obra(months, entradas_caixa, saidas_caixa,
     for i in range(n):
         if i > ref_month_index:
             delta = entradas_caixa[i] + saidas_caixa[i]
+            if i == ref_month_index + 1:
+                # parte do mês seguinte ao âncora que o saldo vivo do fundo já reflete
+                delta -= realizado_parcial_mes_seguinte
             running += delta
             saldo_mes[i] = delta
         saldo_investimento[i] = running

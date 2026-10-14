@@ -23,6 +23,7 @@ def main():
     import build_obra
     import build_fluxo_caixa
     import build_gastos_tipo
+    import build_financiamento
     import extract_dashboard_data
     import build_dashboard_html
 
@@ -30,6 +31,7 @@ def main():
     step("Obra_Consolidado", build_obra.main)
     step("Fluxo_Caixa", build_fluxo_caixa.main)
     step("Gastos_Por_Tipo", build_gastos_tipo.main)
+    step("Financiamento_Imovel", build_financiamento.main)
     step("extract_dashboard_data", extract_dashboard_data.main)
     step("build_dashboard_html", build_dashboard_html.main)
 

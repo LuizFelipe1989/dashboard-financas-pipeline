@@ -550,6 +550,57 @@
     tbody.appendChild(totalTr);
   })();
 
+  // ---------- Financiamento do imóvel (Caixa): saldo devedor, prazo e histórico ----------
+  (function () {
+    const f = data.financiamento_imovel;
+    const panel = document.getElementById('finim-panel');
+    if (!f) { if (panel) panel.style.display = 'none'; return; }
+    const brl2 = (v) => 'R$ ' + abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const money2 = (v) => `<span class="sv${v < 0 ? ' neg' : ''}">${v < 0 ? '(' + brl2(v) + ')' : brl2(v)}</span>`;
+
+    document.getElementById('finim-sub').innerHTML = wrapMoney(
+      `${f.credor} · posição de ${f.data_posicao} · financiado ${brl2(f.valor_financiado)} em ${f.prazo_meses} meses`);
+
+    const tiles = document.getElementById('finim-tiles');
+    [
+      ['Saldo devedor', money2(f.saldo_devedor)],
+      ['Prestação em aberto (vence ' + f.vencimento.slice(0, 5) + ')', money2(f.prestacao)],
+      ['Meses restantes', f.meses_restantes + ' de ' + f.prazo_meses],
+      ['Saldo ÷ avaliação do imóvel', fmt1pct(f.ltv_pct)],
+      ['Saldo vs. valor financiado', money2(f.saldo_vs_financiado)],
+      ['Amortização extra acumulada', money2(f.amortizacao_extra_total)],
+    ].forEach(([label, value]) => {
+      const el = document.createElement('div');
+      el.className = 'stat-tile';
+      el.innerHTML = `<div class="label">${label}</div><div class="value">${value}</div>`;
+      tiles.appendChild(el);
+    });
+
+    document.getElementById('finim-meter-label').innerHTML =
+      `Prazo decorrido: ${f.meses_pagos} de ${f.prazo_meses} prestações (${fmt1pct(f.pct_prazo)}) · quitação prevista em ${f.quitacao_prevista}`;
+    document.getElementById('finim-meter').innerHTML =
+      `<div style="width:${Math.min(f.pct_prazo, 100)}%; background: var(--good)"></div>` +
+      `<div style="width:${Math.max(100 - f.pct_prazo, 0)}%; background: var(--neutral-track)"></div>`;
+
+    const row = (a, b) => `<tr><td>${a}</td><td class="num">${b}</td></tr>`;
+    document.getElementById('finim-contrato').innerHTML = [
+      row('Assinatura', f.assinatura),
+      row('Valor financiado', money2(f.valor_financiado)),
+      row('Valor de avaliação', money2(f.valor_avaliacao)),
+      row('FGTS utilizado', money2(f.fgts_utilizado)),
+      row('Juros nominais', f.juros_nominais.toLocaleString('pt-BR', { minimumFractionDigits: 3 }) + '% a.a.'),
+      row('Juros c/ relacionamento', f.juros_relacionamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) + '% a.a.'),
+      row('Débito automático', f.debito_automatico || '—'),
+    ].join('');
+
+    document.getElementById('finim-plano').innerHTML = (f.plano_caixa || []).map(
+      (p) => row(monthShort(p.mes), money2(p.valor))).join('') || row('—', '—');
+    document.getElementById('finim-historico').innerHTML = [...f.historico].reverse().map(
+      (h) => `<tr><td>${h.data}</td><td class="num">${money2(h.saldo_devedor)}</td><td class="num">${h.meses_restantes}</td></tr>`).join('');
+    document.getElementById('finim-amort').innerHTML = (f.amortizacoes || []).map(
+      (a) => row(`${a.data} — ${a.tipo}`, money2(a.valor))).join('') || row('Nenhuma', '—');
+  })();
+
   // ---------- Investimentos: posição atual, cotação ao vivo e highlights ----------
   (function () {
     const inv = data.investimentos;

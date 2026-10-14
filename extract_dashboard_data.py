@@ -8,6 +8,7 @@ from finlib import (
     apply_despesas_casa_handover, neutralize_investimentos_row, compute_financiamento_obra,
 )
 from build_dre import build_rows
+from build_financiamento import load_financiamento_imovel
 from build_obra import load_items_and_colors, load_item_grid, window_from_grid_by_dre_index, load_janela_pix_manual, payment_summary, SRC_TAB as OBRA_TAB
 from build_gastos_tipo import group_by_natureza_for_month, group_by_banco_for_month, NATUREZA_ORDEM
 from build_investimentos import (
@@ -383,6 +384,12 @@ def main():
     personal_n = len([it for it in card_items if it["tipo"] != "Obra Apto"])
     obra_card_n = len([it for it in card_items if it["tipo"] == "Obra Apto"])
 
+    plano_fin = [
+        {"mes": months[i], "valor": abs(proj_data.get("Financiamento VM", [0.0] * n)[i])}
+        for i in range(dash_ref, min(dash_ref + 6, n))
+    ]
+    financiamento_imovel = load_financiamento_imovel(sh, plano_fin)
+
     out = {
         "months": months,
         "ref_month_index": dash_ref,
@@ -418,6 +425,7 @@ def main():
             "posicao_inicial": investimento_posicao_inicial,
             "posicao_inicial_mes": months[investimento_mes_inicial_idx],
         },
+        "financiamento_imovel": financiamento_imovel,
         "n_itens_cartao_pessoal": personal_n,
         "n_itens_obra_cartao": obra_card_n,
         "alerts": alerts,

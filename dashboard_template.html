@@ -424,6 +424,29 @@ table.detail-table tr.row-total td { font-weight: 600; border-top: 1px solid var
     </section>
   </div>
 
+  <div class="eyebrow">Financiamento do Imóvel</div>
+  <section class="panel" id="finim-panel">
+    <h2>Financiamento do Apartamento</h2>
+    <div class="panel-sub" id="finim-sub">—</div>
+    <div class="stat-tiles" id="finim-tiles"></div>
+    <div class="panel-sub" id="finim-meter-label" style="margin-bottom:4px;">—</div>
+    <div class="obra-meter" id="finim-meter"></div>
+    <div class="grid-2">
+      <div>
+        <div class="panel-sub" style="margin:10px 0 6px;"><b>Contrato</b></div>
+        <table class="obra-table"><tbody id="finim-contrato"></tbody></table>
+      </div>
+      <div>
+        <div class="panel-sub" style="margin:10px 0 6px;"><b>Saídas planejadas no fluxo</b> (prestação + amortização extra)</div>
+        <table class="obra-table"><tbody id="finim-plano"></tbody></table>
+        <div class="panel-sub" style="margin:14px 0 6px;"><b>Histórico de posição</b></div>
+        <table class="obra-table"><thead><tr><th>Data</th><th class="num">Saldo devedor</th><th class="num">Meses rest.</th></tr></thead><tbody id="finim-historico"></tbody></table>
+        <div class="panel-sub" style="margin:14px 0 6px;"><b>Amortizações extraordinárias</b></div>
+        <table class="obra-table"><tbody id="finim-amort"></tbody></table>
+      </div>
+    </div>
+  </section>
+
   <section class="panel">
     <h2>Obra da Reforma</h2>
     <div class="panel-sub" id="obra-sub">—</div>
