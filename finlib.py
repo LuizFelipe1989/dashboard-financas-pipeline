@@ -364,6 +364,10 @@ SALDO_DISPONIVEL_IMEDIATO = 0.0
 # get_fundo_obra_balance) falhar — o valor real e atual do RF Ref DI Plus Ágil (fundo
 # dado em garantia do limite do cartão da obra) é lido da planilha a cada rodada.
 INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76
+# Parte do fundo LIVRE hoje (saldo disponível do app do banco em 14/10/2026: conta + resgate
+# automático): pode aumentar o limite do cartão (hoje o fundo inteiro é garantia) ou pagar Pix.
+# O resto do fundo segue em garantia do limite do cartão da obra. Atualizar a cada leitura.
+FUNDO_DISPONIVEL_RESGATE = 10497.01
 # O saldo vivo do fundo (K7) já embute o que foi realizado do mês seguinte ao âncora
 # (REF_MONTH_INDEX) até a data da leitura; esse trecho é descontado do delta daquele mês
 # para não contar duas vezes. Out/26 até 13/10 (itens planejados já liquidados no extrato):

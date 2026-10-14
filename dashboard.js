@@ -394,7 +394,7 @@
     const f = data.financiamento_obra;
     const jul27 = data.jul27_index;
     document.getElementById('financiamento-sub').innerHTML = wrapMoney(
-      `${fmt0(f.investimento_bloqueado_total)} disponíveis hoje · projeção em ${monthShort(data.months[jul27])}: ${fmt0(f.saldo_investimento[jul27])}`);
+      `${fmt0(f.investimento_bloqueado_total)} no fundo hoje (${fmt0(f.disponivel_resgate)} livres pra Pix/limite do cartão · ${fmt0(f.em_garantia)} em garantia do limite) · projeção em ${monthShort(data.months[jul27])}: ${fmt0(f.saldo_investimento[jul27])}`);
 
     // Ponte histórica: um ponto "Início" com a posição bruta do fundo antes de ser
     // consumido pela obra (~R$144k em jul./26), antes da série modelada (que já parte
@@ -599,6 +599,74 @@
       (h) => `<tr><td>${h.data}</td><td class="num">${money2(h.saldo_devedor)}</td><td class="num">${h.meses_restantes}</td></tr>`).join('');
     document.getElementById('finim-amort').innerHTML = (f.amortizacoes || []).map(
       (a) => row(`${a.data} — ${a.tipo}`, money2(a.valor))).join('') || row('Nenhuma', '—');
+
+    // ---- Projeção de quitação (Tabela Price): cenários de 3/5 anos com antecipações e FGTS ----
+    const pr = f.projecao;
+    if (pr) {
+      const pm = pr.premissas;
+      const fgtsTxt = pm.fgts_valor ? `FGTS ${fmt0(pm.fgts_valor)} a cada 2 anos (1º uso ${pm.fgts_primeiro})` : 'sem FGTS';
+      const avTxt = pm.avulsas.length ? ' · avulsas: ' + pm.avulsas.map((a) => `${a.mes} ${fmt0(a.valor)}`).join(', ') : '';
+      document.getElementById('finim-proj-sub').innerHTML = wrapMoney(
+        `Tabela Price: prestação fixa de ${brl2(pm.prestacao_sem_encargos)} + ${brl2(pm.encargos)} de encargos (seguros/tarifa), juros de ${pm.taxa_mensal_pct.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}% a.m., ` +
+        `sem correção da TR. Premissas editáveis na aba Financiamento_Imovel: antecipação mensal atual ${brl2(pm.extra_atual)}, ${fgtsTxt}${avTxt}. ` +
+        `A economia vem de antecipar cedo: no início quase toda a prestação é juro, então cada real antecipado corta prestações do fim do contrato.`);
+
+      const tb = document.getElementById('finim-cenarios');
+      tb.innerHTML = pr.cenarios.map((c) => {
+        const meta = c.meta_meses
+          ? `<div style="font-size:11px;color:var(--ink-muted)">sem FGTS seria ${money2(c.extra_sem_fgts)}/mês</div>` : '';
+        return `<tr><td>${c.nome}${meta}</td>
+          <td class="num">${money2(c.extra_mensal)}</td>
+          <td class="num">${c.fgts_usado ? money2(c.fgts_usado) : '—'}</td>
+          <td class="num"><b>${c.quitacao}</b><div style="font-size:11px;color:var(--ink-muted)">${(c.meses / 12).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} anos</div></td>
+          <td class="num">${money2(c.juros_total)}</td>
+          <td class="num">${c.economia_juros > 0 ? money2(c.economia_juros) : '—'}</td></tr>`;
+      }).join('');
+
+      document.getElementById('finim-simulador').innerHTML = pr.simulador.map((r) =>
+        `<tr><td>${money2(r.extra)}</td>
+          <td class="num">${r.quitacao_sem_fgts}</td><td class="num">${money2(r.economia_sem_fgts)}</td>
+          <td class="num">${r.quitacao_com_fgts}</td><td class="num">${money2(r.economia_com_fgts)}</td></tr>`).join('');
+
+      // gráfico: saldo devedor mês a mês
+      const svg = document.getElementById('finim-chart');
+      const W = 720, H = 280, L = 62, R = 28, T = 12, B = 30;
+      const style = {
+        base: ['var(--ink-muted)', '5 4'], atual: ['var(--warning)', ''], atual_fgts: ['var(--future)', ''],
+        meta5: ['var(--accent)', ''], meta3: ['var(--good)', ''],
+      };
+      const maxM = Math.max(...pr.cenarios.map((c) => c.serie.length - 1));
+      const maxV = Math.max(...pr.cenarios.map((c) => c.serie[0]));
+      const x = (k) => L + (W - L - R) * k / maxM;
+      const y = (v) => T + (H - T - B) * (1 - v / maxV);
+      let g = '';
+      for (let t = 0; t <= 4; t++) {
+        const v = maxV * t / 4;
+        g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--gridline)"/>` +
+             `<text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--ink-muted)">${Math.round(v / 1000)} mil</text>`;
+      }
+      const [im, iy] = pm.inicio.split('/').map(Number);
+      const mAbbr = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+      for (let k = 0; k <= maxM; k += 12) {
+        const idx = (im - 1) + k, yy = iy + Math.floor(idx / 12), mm = idx % 12;
+        g += `<text x="${x(k)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--ink-muted)">${mAbbr[mm]}/${String(yy).slice(2)}</text>`;
+      }
+      pr.cenarios.forEach((c) => {
+        const [col, dash] = style[c.id] || ['var(--ink-secondary)', ''];
+        const pts = c.serie.map((v, k) => `${x(k).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+        g += `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" ${dash ? `stroke-dasharray="${dash}"` : ''}/>`;
+        const last = c.serie.length - 1;
+        if (c.serie[last] <= 0.01 && last <= maxM) {
+          g += `<circle cx="${x(last)}" cy="${y(0)}" r="4" fill="${col}"><title>${c.nome}: quitação ${c.quitacao}</title></circle>`;
+        }
+      });
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      svg.innerHTML = g;
+      document.getElementById('finim-legend').innerHTML = pr.cenarios.map((c) => {
+        const [col] = style[c.id] || ['var(--ink-secondary)'];
+        return `<span class="item"><span class="swatch" style="background:${col}"></span>${c.nome}</span>`;
+      }).join('');
+    }
   })();
 
   // ---------- Investimentos: posição atual, cotação ao vivo e highlights ----------

@@ -9,6 +9,7 @@ from finlib import (
 )
 from build_dre import build_rows
 from build_financiamento import load_financiamento_imovel
+from finlib import FUNDO_DISPONIVEL_RESGATE
 from build_obra import load_items_and_colors, load_item_grid, window_from_grid_by_dre_index, load_janela_pix_manual, payment_summary, SRC_TAB as OBRA_TAB
 from build_gastos_tipo import group_by_natureza_for_month, group_by_banco_for_month, NATUREZA_ORDEM
 from build_investimentos import (
@@ -420,6 +421,8 @@ def main():
         "pagamentos": pagamentos,
         "financiamento_obra": {
             "investimento_bloqueado_total": fin["investimento_bloqueado_total"],
+            "disponivel_resgate": FUNDO_DISPONIVEL_RESGATE,
+            "em_garantia": max(fin["investimento_bloqueado_total"] - FUNDO_DISPONIVEL_RESGATE, 0.0),
             "saldo_mes": fin["saldo_mes"],
             "saldo_investimento": fin["saldo_investimento"],
             "posicao_inicial": investimento_posicao_inicial,

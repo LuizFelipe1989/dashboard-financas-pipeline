@@ -445,6 +445,27 @@ table.detail-table tr.row-total td { font-weight: 600; border-top: 1px solid var
         <table class="obra-table"><tbody id="finim-amort"></tbody></table>
       </div>
     </div>
+    <h3 style="margin:22px 0 4px;font-size:15px;">Projeção de quitação — 3 e 5 anos</h3>
+    <div class="panel-sub" id="finim-proj-sub">—</div>
+    <div class="chart-wrap wide-scroll">
+      <svg id="finim-chart" width="100%" viewBox="0 0 720 280" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <div class="obra-legend" id="finim-legend"></div>
+    <div class="wide-scroll">
+      <table class="obra-table">
+        <thead><tr><th>Cenário</th><th class="num">Antecipação / mês</th><th class="num">FGTS usado</th><th class="num">Quitação</th><th class="num">Juros até quitar</th><th class="num">Juros economizados</th></tr></thead>
+        <tbody id="finim-cenarios"></tbody>
+      </table>
+    </div>
+    <details class="detail-toggle">
+      <summary>Simulador: quanto antecipar por mês</summary>
+      <div class="wide-scroll">
+        <table class="obra-table">
+          <thead><tr><th>Antecipação / mês</th><th class="num">Quitação (sem FGTS)</th><th class="num">Economia</th><th class="num">Quitação (com FGTS)</th><th class="num">Economia</th></tr></thead>
+          <tbody id="finim-simulador"></tbody>
+        </table>
+      </div>
+    </details>
   </section>
 
   <section class="panel">
