@@ -604,7 +604,7 @@
     const pr = f.projecao;
     if (pr) {
       const pm = pr.premissas;
-      const fgtsTxt = pm.fgts_valor ? `FGTS ${fmt0(pm.fgts_valor)} a cada 2 anos (1º uso ${pm.fgts_primeiro})` : 'sem FGTS';
+      const fgtsTxt = pm.fgts_saldo ? `FGTS: saldo ${brl2(pm.fgts_saldo)} em ${pm.fgts_mes} + ${brl2(pm.fgts_deposito)}/mês de depósito (+13º) e ${pm.fgts_rend_aa.toLocaleString('pt-BR')}% a.a., usando todo o saldo acumulado a cada 2 anos (1º uso ${pm.fgts_primeiro})` : 'sem FGTS';
       const avTxt = pm.avulsas.length ? ' · avulsas: ' + pm.avulsas.map((a) => `${a.mes} ${fmt0(a.valor)}`).join(', ') : '';
       document.getElementById('finim-proj-sub').innerHTML = wrapMoney(
         `Tabela Price: prestação fixa de ${brl2(pm.prestacao_sem_encargos)} + ${brl2(pm.encargos)} de encargos (seguros/tarifa), juros de ${pm.taxa_mensal_pct.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}% a.m., ` +
@@ -620,7 +620,7 @@
         return `<tr><td>${c.nome}${meta}</td>
           <td class="num"><b>${adicTxt}</b></td>
           <td class="num">${money2(c.desembolso_mensal)}<div style="font-size:11px;color:var(--ink-muted)">antecip. ${money2(c.extra_mensal)}</div></td>
-          <td class="num">${c.fgts_usado ? money2(c.fgts_usado) : '—'}</td>
+          <td class="num">${c.fgts_usado ? money2(c.fgts_usado) + (c.usos_fgts || []).map((u) => `<div style="font-size:11px;color:var(--ink-muted)">${u.mes}: ${money2(u.valor)}</div>`).join('') : '—'}</td>
           <td class="num"><b>${c.quitacao}</b><div style="font-size:11px;color:var(--ink-muted)">${(c.meses / 12).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} anos</div></td>
           <td class="num">${money2(c.juros_total)}</td>
           <td class="num">${c.economia_juros > 0 ? money2(c.economia_juros) : '—'}</td></tr>`;

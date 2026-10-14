@@ -26,7 +26,10 @@ PARAMS = [
     ("FGTS utilizado (R$)", 123500.00),
     ("Débito automático", "Sim"),
     ("Antecipação mensal atual (R$)", 259.54),
-    ("FGTS a cada 2 anos (R$)", 38000.00),
+    ("Saldo atual do FGTS (R$)", 13915.78),
+    ("Mês do saldo do FGTS (mm/aaaa)", "09/2026"),
+    ("Depósito mensal FGTS (R$)", 1597.68),
+    ("Rendimento do FGTS (% a.a.)", 3.0),
     ("Primeiro uso do FGTS (mm/aaaa)", "05/2028"),
 ]
 AVULSAS_HEADER = ["Mês (mm/aaaa)", "Valor (R$)"]
@@ -111,45 +114,64 @@ def _parse_mm_aaaa(s):
         return None
 
 
-def simulate(saldo0, i, pmt, extra, fgts_valor, fgts_k0, avulsas, max_k=400):
+def _fgts_pre_roll(fgts, mes0):
+    """Saldo do FGTS ao fim do mês anterior ao k=0, a partir da leitura (fgts['mes'] = saldo
+    JÁ incluindo o depósito daquele mês). Aplica rendimento + depósito (+ 13º em dez.)."""
+    f = fgts["saldo"]
+    m = fgts["mes"]
+    while m < mes0:
+        m = _add_months(m, 1)
+        f = f * (1 + fgts["rm"]) + fgts["dep"] * (2 if m.month == 12 else 1)
+    return f
+
+
+def simulate(saldo0, i, pmt, extra, fgts, avulsas, mes0, max_k=400):
     """Tabela Price: a prestação (pmt, sem encargos) é fixa; juros = saldo*i; o resto amortiza.
-    k=0 é a prestação em aberto. Antecipações (extra mensal, FGTS a cada 24 meses a partir de
-    fgts_k0, avulsas {k: valor}) abatem saldo logo após a prestação do mês.
-    Retorna (série de saldo por mês incluindo o ponto 0, meses até quitar, juros totais, fgts usado)."""
+    k=0 é a prestação em aberto (mês mes0). Antecipações (extra mensal, avulsas {k: valor} e
+    FGTS) abatem saldo logo após a prestação do mês. FGTS (dict ou None): saldo acumula com
+    depósito mensal (+13º em dez.) e rendimento; a cada 24 meses a partir de fgts['k0'] usa-se
+    TODO o saldo acumulado. Retorna (série de saldo, meses até quitar, juros totais, usos do FGTS)."""
     s = saldo0
     serie = [saldo0]
     juros = 0.0
-    fgts_usado = 0.0
+    usos = []
+    f = _fgts_pre_roll(fgts, mes0) if fgts else 0.0
     for k in range(max_k):
+        mes = _add_months(mes0, k)
+        if fgts:
+            f = f * (1 + fgts["rm"]) + fgts["dep"] * (2 if mes.month == 12 else 1)
         jr = s * i
         juros += jr
         s -= min(max(pmt - jr, 0.0), s)
         if s > 0.005:
             ext = extra + avulsas.get(k, 0.0)
-            if fgts_valor and fgts_k0 is not None and k >= fgts_k0 and (k - fgts_k0) % 24 == 0:
-                ext += fgts_valor
-                fgts_usado += min(fgts_valor, max(s, 0.0))
+            if fgts and fgts["k0"] is not None and k >= fgts["k0"] and (k - fgts["k0"]) % 24 == 0 and f > 0:
+                uso = min(f, s - min(ext, s))
+                if uso > 0:
+                    ext += uso
+                    f -= uso
+                    usos.append({"mes": mes.strftime("%m/%Y"), "valor": uso})
             s -= min(ext, s)
         serie.append(max(s, 0.0))
         if s <= 0.005:
-            return serie, k + 1, juros, fgts_usado
-    return serie, max_k, juros, fgts_usado
+            return serie, k + 1, juros, usos
+    return serie, max_k, juros, usos
 
 
-def _extra_necessario(alvo_meses, saldo0, i, pmt, fgts_valor, fgts_k0, avulsas):
+def _extra_necessario(alvo_meses, saldo0, i, pmt, fgts, avulsas, mes0):
     lo, hi = 0.0, saldo0
-    if simulate(saldo0, i, pmt, 0.0, fgts_valor, fgts_k0, avulsas)[1] <= alvo_meses:
+    if simulate(saldo0, i, pmt, 0.0, fgts, avulsas, mes0)[1] <= alvo_meses:
         return 0.0
     for _ in range(60):
         mid = (lo + hi) / 2
-        if simulate(saldo0, i, pmt, mid, fgts_valor, fgts_k0, avulsas)[1] <= alvo_meses:
+        if simulate(saldo0, i, pmt, mid, fgts, avulsas, mes0)[1] <= alvo_meses:
             hi = mid
         else:
             lo = mid
     return hi
 
 
-def projetar_quitacao(fin, avulsas, extra_atual, fgts_valor, fgts_primeiro, horizonte=84):
+def projetar_quitacao(fin, avulsas, extra_atual, fgts_cfg, fgts_primeiro, horizonte=84):
     """Cenários de quitação (3 e 5 anos) e simulador de antecipação mensal. `fin` é o dict
     já carregado (saldo, meses restantes, prestação, vencimento, juros)."""
     venc = _parse_date(fin["vencimento"])
@@ -161,9 +183,14 @@ def projetar_quitacao(fin, avulsas, extra_atual, fgts_valor, fgts_primeiro, hori
     pmt = saldo0 * i / (1 - (1 + i) ** (-n)) if i > 0 else saldo0 / n
     encargos = max(fin["prestacao"] - pmt, 0.0)
     primeiro = _parse_mm_aaaa(fgts_primeiro)
-    fgts_k0 = _month_diff(venc.replace(day=1), primeiro) if primeiro else None
+    mes0 = venc.replace(day=1)
+    fgts_k0 = _month_diff(mes0, primeiro) if primeiro else None
     if fgts_k0 is not None and fgts_k0 < 0:
         fgts_k0 = 0
+    fgts = None
+    if fgts_cfg and fgts_cfg.get("mes") and fgts_k0 is not None:
+        fgts = {"saldo": fgts_cfg["saldo"], "mes": fgts_cfg["mes"], "dep": fgts_cfg["dep"],
+                "rm": (1 + fgts_cfg["rend_aa"] / 100.0) ** (1 / 12.0) - 1, "k0": fgts_k0}
     av = {}
     for a in avulsas:
         d = _parse_mm_aaaa(a["mes"])
@@ -172,18 +199,19 @@ def projetar_quitacao(fin, avulsas, extra_atual, fgts_valor, fgts_primeiro, hori
             if k >= 0:
                 av[k] = av.get(k, 0.0) + a["valor"]
 
-    base_juros = simulate(saldo0, i, pmt, 0.0, 0.0, None, {})[2]
+    base_juros = simulate(saldo0, i, pmt, 0.0, None, {}, mes0)[2]
 
     def fim(meses):
         d = _add_months(venc.replace(day=1), meses - 1)
         return d.strftime("%m/%Y")
 
     def cenario(cid, nome, extra, usa_fgts, usa_avulsas=True, meta=None):
-        serie, meses, juros, fg = simulate(saldo0, i, pmt, extra, fgts_valor if usa_fgts else 0.0,
-                                           fgts_k0, av if usa_avulsas else {})
+        serie, meses, juros, usos = simulate(saldo0, i, pmt, extra, fgts if usa_fgts else None,
+                                             av if usa_avulsas else {}, mes0)
+        fg = sum(u["valor"] for u in usos)
         return {
             "id": cid, "nome": nome, "meta_meses": meta,
-            "extra_mensal": extra, "usa_fgts": usa_fgts, "fgts_usado": fg,
+            "extra_mensal": extra, "usa_fgts": usa_fgts, "fgts_usado": fg, "usos_fgts": usos,
             "meses": meses, "quitacao": fim(meses),
             "juros_total": juros, "economia_juros": base_juros - juros,
             "desembolso_mensal": fin["prestacao"] + extra,
@@ -197,16 +225,16 @@ def projetar_quitacao(fin, avulsas, extra_atual, fgts_valor, fgts_primeiro, hori
     ]
     for anos in (5, 3):
         alvo = anos * 12
-        ex = _extra_necessario(alvo, saldo0, i, pmt, fgts_valor, fgts_k0, av)
-        ex_sem = _extra_necessario(alvo, saldo0, i, pmt, 0.0, None, av)
+        ex = _extra_necessario(alvo, saldo0, i, pmt, fgts, av, mes0)
+        ex_sem = _extra_necessario(alvo, saldo0, i, pmt, None, av, mes0)
         c = cenario(f"meta{anos}", f"Meta {anos} anos (com FGTS)", ex, True, meta=alvo)
         c["extra_sem_fgts"] = ex_sem
         cenarios.append(c)
 
     simulador = []
     for extra in (extra_atual, 500.0, 1000.0, 1500.0, 2000.0, 3000.0, 5000.0):
-        a = simulate(saldo0, i, pmt, extra, 0.0, None, av)
-        b = simulate(saldo0, i, pmt, extra, fgts_valor, fgts_k0, av)
+        a = simulate(saldo0, i, pmt, extra, None, av, mes0)
+        b = simulate(saldo0, i, pmt, extra, fgts, av, mes0)
         simulador.append({
             "extra": extra,
             "meses_sem_fgts": a[1], "quitacao_sem_fgts": fim(a[1]), "economia_sem_fgts": base_juros - a[2],
@@ -215,7 +243,11 @@ def projetar_quitacao(fin, avulsas, extra_atual, fgts_valor, fgts_primeiro, hori
     return {
         "premissas": {
             "taxa_mensal_pct": i * 100, "prestacao_sem_encargos": pmt, "encargos": encargos,
-            "extra_atual": extra_atual, "fgts_valor": fgts_valor, "fgts_primeiro": fgts_primeiro,
+            "extra_atual": extra_atual, "fgts_primeiro": fgts_primeiro,
+            "fgts_saldo": fgts_cfg["saldo"] if fgts_cfg else 0.0,
+            "fgts_mes": fgts_cfg["mes"].strftime("%m/%Y") if fgts_cfg and fgts_cfg.get("mes") else "",
+            "fgts_deposito": fgts_cfg["dep"] if fgts_cfg else 0.0,
+            "fgts_rend_aa": fgts_cfg["rend_aa"] if fgts_cfg else 0.0,
             "avulsas": [{"mes": a["mes"], "valor": a["valor"]} for a in avulsas],
             "inicio": venc.strftime("%m/%Y"), "juros_total_base": base_juros,
         },
@@ -306,9 +338,15 @@ def load_financiamento_imovel(sh, plano_meses=None):
         "amortizacoes": amort,
         "plano_caixa": plano_meses or [],
     }
+    fgts_cfg = {
+        "saldo": pnum("Saldo atual do FGTS (R$)"),
+        "mes": _parse_mm_aaaa(params.get("Mês do saldo do FGTS (mm/aaaa)", "")),
+        "dep": pnum("Depósito mensal FGTS (R$)"),
+        "rend_aa": pnum("Rendimento do FGTS (% a.a.)"),
+    }
     out["projecao"] = projetar_quitacao(
         out, avulsas, pnum("Antecipação mensal atual (R$)"),
-        pnum("FGTS a cada 2 anos (R$)"), params.get("Primeiro uso do FGTS (mm/aaaa)", ""))
+        fgts_cfg, params.get("Primeiro uso do FGTS (mm/aaaa)", ""))
     return out
 
 
