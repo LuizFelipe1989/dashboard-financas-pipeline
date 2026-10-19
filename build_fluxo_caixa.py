@@ -45,7 +45,7 @@ def main():
     # Gabriela", dentro de entradas) quando ela recebe o salário dela. Por isso o "Saldo
     # Acumulado" é a própria trajetória do fundo (saidas_caixa inclui de volta
     # Fixo_Gabi/Moradia_Gabi, que na prática também saem dessa reserva).
-    fin = compute_financiamento_obra(months, totals["entradas"], totals["saidas_caixa"], **fin_kwargs)
+    fin = compute_financiamento_obra(months, totals["entradas"], totals["saidas_caixa"], cartao_obra_mensal=cartao_obra_mensal, **fin_kwargs)
     saldo_acumulado = fin["saldo_investimento"]
 
     header = ["Linha"] + months + ["TOTAL"]

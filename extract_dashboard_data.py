@@ -146,7 +146,7 @@ def main():
     if investimento_posicao_inicial:
         fin_kwargs["historical_start_balance"] = investimento_posicao_inicial
         fin_kwargs["historical_start_index"] = investimento_mes_inicial_idx
-    fin = compute_financiamento_obra(months, totals["entradas"], totals["saidas_caixa"], **fin_kwargs)
+    fin = compute_financiamento_obra(months, totals["entradas"], totals["saidas_caixa"], cartao_obra_mensal=cartao_obra_mensal, **fin_kwargs)
     saldo_acumulado = fin["saldo_investimento"]
 
     # ---- DRE resumo (mês em foco: dash_ref = set./26, o próximo a acontecer) — Custo
@@ -327,7 +327,7 @@ def main():
     # foco, já que esses pagamentos ainda estão pendentes.
     if dash_ref + 1 < n:
         pix_dash_ref = [it for it in janela_pagamento_by_month[dash_ref]["itens"] if it["modalidade"].strip().lower() == "pix"]
-        cartao_seguinte = cartao_itens_for(dash_ref + 1)
+        cartao_seguinte = [it for it in cartao_itens_for(dash_ref + 1) if it["status"] != "PAGO"]
         itens = pix_dash_ref + cartao_seguinte
         janela_pagamento_by_month[dash_ref] = {
             "mes": months[dash_ref],
