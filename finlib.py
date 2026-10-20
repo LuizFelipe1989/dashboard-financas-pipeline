@@ -55,6 +55,7 @@ GROUPS = [
     # contas dele, ele paga as da casa, ela recompõe depois no 5º dia útil do mês
     # seguinte) — lançado quando o Pix realmente chega, não uma média mensal.
     ("Reembolso Gabriela", "OUTRAS_RECEITAS"),
+    ("Transferência JP", "OUTRAS_RECEITAS"),
     ("(-) DEDUÇÕES SOBRE SALÁRIO", None),
     # "Deduções Salário" is the source sheet's own subtotal of the lines below —
     # excluded here to avoid double-counting; the computed Subtotal reproduces it.
@@ -102,6 +103,8 @@ GROUPS = [
     ("Doações", "VARIAVEL"),
     ("Vestuário", "VARIAVEL"),
     ("Osteopata Maria", "VARIAVEL"),
+    ("Consultas Médicas", "VARIAVEL"),
+    ("Outros Gastos", "VARIAVEL"),
     ("(-) CUSTOS VARIÁVEIS — OBRA", None),
     ("Pix Pagamentos Obra", "VARIAVEL_OBRA"),
     ("(-) INVESTIMENTOS", None),
@@ -367,21 +370,23 @@ INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76
 # Parte do fundo LIVRE hoje ('Invest. Resgate Autom.' do extrato de 19/10/2026: conta + resgate
 # automático): pode aumentar o limite do cartão (hoje o fundo inteiro é garantia) ou pagar Pix.
 # O resto do fundo segue em garantia do limite do cartão da obra. Atualizar a cada leitura.
-FUNDO_DISPONIVEL_RESGATE = 10091.03
+FUNDO_DISPONIVEL_RESGATE = 9862.83
 # O saldo vivo do fundo (K7) já embute fluxos realizados DEPOIS do mês âncora (REF_MONTH_INDEX)
 # até a data da leitura. Cada fluxo planejado e já liquidado é descontado do delta do mês a que
 # pertence no plano, pra não contar duas vezes (chave = meses após o âncora; valor com o sinal
 # do fluxo: entrada +, saída -). Leitura de 19/10/2026 (âncora set./26):
 #  +1 (out./26): Gabriela +3.810,00 · salário líquido parcial +7.988,40 · amortização Caixa -260,00 ·
 #     Condomínio -1.417,79 · doação -15,80 · higiene -120,01 · Pix obra Leandro -200,00 · IPTU -483,74 ·
-#     mudança Henrique -700,00 · Capitalização Caixa -200,00 · aporte Brasilprev -100,00
+#     mudança Henrique -700,00 · Capitalização Caixa -200,00 · aporte Brasilprev -100,00 ·
+#     JP +300,00 · psiquiatra -500,00 · estacionamento -23,00 · tarifa -5,20 (lançamentos de 19/10)
 #  +2 (nov./26): fatura de cartão que venceria 10/11 e foi antecipada em 16/10 via Pix (resgate do
 #     fundo): -(10.179,97 + 7.557,81).
 # Fora das contas (já estão no saldo, mas não no plano): empréstimo da Gabriela +5.000,00 e Pix sem
 # categoria. Atualizar/zerar ao avançar o âncora.
 AJUSTES_JA_REALIZADOS = {
     1: (3810.00 + 7988.40 - 260.00 - 1417.79 - 15.80 - 120.01 - 200.00 - 483.74
-        - 700.00 - 200.00 - 100.00),
+        - 700.00 - 200.00 - 100.00
+        + 300.00 - 500.00 - 23.00 - 5.20),
     2: -(10179.97 + 7557.81),
 }
 REALIZADO_PARCIAL_MES_SEGUINTE = AJUSTES_JA_REALIZADOS[1]
