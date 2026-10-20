@@ -370,7 +370,7 @@ INVESTIMENTO_BLOQUEADO_TOTAL = 74887.76
 # Parte do fundo LIVRE hoje ('Invest. Resgate Autom.' do extrato de 19/10/2026: conta + resgate
 # automático): pode aumentar o limite do cartão (hoje o fundo inteiro é garantia) ou pagar Pix.
 # O resto do fundo segue em garantia do limite do cartão da obra. Atualizar a cada leitura.
-FUNDO_DISPONIVEL_RESGATE = 9862.83
+FUNDO_DISPONIVEL_RESGATE = 9369.50
 # O saldo vivo do fundo (K7) já embute fluxos realizados DEPOIS do mês âncora (REF_MONTH_INDEX)
 # até a data da leitura. Cada fluxo planejado e já liquidado é descontado do delta do mês a que
 # pertence no plano, pra não contar duas vezes (chave = meses após o âncora; valor com o sinal
