@@ -385,16 +385,17 @@ FUNDO_DISPONIVEL_RESGATE = 1117.50
 # Farmácia' nov.) — já estão no saldo vivo e NÃO são parte do salário de out. (que ainda cai inteiro).
 # Leitura de 27/10/2026: +1 também recebe prestação Caixa -3.657,47 (23/10), terapia -260,00 + reembolso
 # SulAmérica +83,40 (21/10); +2 passa a somar o restante das faturas pagas (20/10: 2.499,47; 27/10:
-# 584,73 — usuário confirmou que TODOS os cartões do mês já foram pagos) e a antecipação Caixa de
-# 23/10 (-265,00, adianta a amortização de nov.).
+# 584,73 — usuário confirmou que TODOS os cartões do mês já foram pagos) (total pago nos BB: 20.951,87; fatura Caixa Elo de 2.134,60 ainda NÃO paga — segue como saída de nov.).
+# Out também: antecipação extra Caixa 23/10 -265,00 e Pix obra Hidráulica (Francisco) -1.000,00.
 # Fora das contas (já estão no saldo, mas não no plano): empréstimo da Gabriela +5.000,00 e Pix sem
 # categoria. Atualizar/zerar ao avançar o âncora.
 AJUSTES_JA_REALIZADOS = {
     1: (3810.00 - 260.00 - 1417.79 - 15.80 - 120.01 - 200.00 - 483.74
         - 700.00 - 200.00 - 100.00
         + 300.00 - 500.00 - 23.00 - 5.20
-        - 3657.47 - 260.00 + 83.40),
-    2: -(10179.97 + 7557.81 + 2499.47 + 584.73 + 265.00),
+        - 3657.47 - 260.00 + 83.40
+        - 265.00 - 1000.00),
+    2: -20951.87,
 }
 REALIZADO_PARCIAL_MES_SEGUINTE = AJUSTES_JA_REALIZADOS[1]
 # A fatura de out./26 (vence 10/10) foi paga em 30/09, ANTES da leitura atual do fundo: o cartão da
